@@ -25,8 +25,10 @@ module sprite_top(
 
 	wire line;
 	wire drawing;  // drawing at (sx,sy)
-	wire spr_pix_indx;
-    
+	wire [CIDXW-1:0] spr_pix_indx;
+
+	assign spr_pix_indx = my_pix ? my_pix : (smallf_pix ? smallf_pix : 0);
+	assign drawing = smallf_drawing || my_drawing;
 
 	wire bright;
 	wire[9:0] hc, vc;
@@ -36,7 +38,7 @@ module sprite_top(
 	wire [11:0] rgb;
 	wire clk25;
 	display_controller dc(.clk(ClkPort), .hSync(hSync), .vSync(vSync), .bright(bright), .hCount(hc), .vCount(vc), .line(line), .clk25(clk25));
-	vga_bitchange vbc(.clk(ClkPort), .bright(bright), .button(BtnU), .spr_drawing(drawing) ,.spr_indx(spr_pix_indx), .hCount(hc), .vCount(vc), .rgb(rgb), .score(score));
+	vga_bitchange #(.CIDXW(CIDXW)) vbc (.clk(ClkPort), .bright(bright), .button(BtnU), .spr_drawing(drawing) ,.spr_indx(spr_pix_indx), .hCount(hc), .vCount(vc), .rgb(rgb), .score(score));
 	// counter cnt(.clk(ClkPort), .displayNumber(score), .anode(anode), .ssdOut(ssdOut));
 
 	assign Dp = 1;
@@ -65,24 +67,25 @@ module sprite_top(
 
 	// sprite parameters
     localparam SX_OFFS    =  2;  // horizontal screen offset (pixels): +1 for CLUT
-    localparam SPR_WIDTH  =  8;  // bitmap width in pixels
-    localparam SPR_HEIGHT =  8;  // bitmap height in pixels
+    localparam SMALLF_WIDTH  =  8;  // bitmap width in pixels
+    localparam SMALLF_HEIGHT =  8;  // bitmap height in pixels
     // localparam SPR_SCALE  =  2;  // 2^2 = 4x scale
     // localparam SPR_DRAWW  = SPR_WIDTH * 2**SPR_SCALE;  // draw width
     // localparam SPR_SPX    =  2;  // horizontal speed (pixels/frame)
-    localparam SPR_FILE   = "letter_f.mem";  // bitmap file
+    localparam SMALLF_FILE   = "letter_f.mem";  // bitmap file
 	localparam SPR_DATAW  =  1;
 	localparam H_RES=784;
 	localparam CORDW=10;
-	localparam SPRX = 32;  // horizontal position
-    localparam SPRY = 16;  // vertical position
-	// localparam CIDXW = 1;
+	localparam SPRX = 150;  // horizontal position
+    localparam SPRY = 50;  // vertical position
+	localparam CIDXW = 2;
 
 	//wire [CIDXW-1:0] spr_pix_indx;  // pixel colour index	
-	wire signed [CORDW-1:0] sprx, spry;
-	assign sprx = 150;
-	assign spry = 50;
+	wire signed [CORDW-1:0] smallf_x, smallf_y;
+	assign smallf_x = 150;
+	assign smallf_y = 50;
 
+	wire smallf_pix, smallf_drawing;
 	// always_ff @(posedge clk_pix) begin
     //     if (frame) begin
     //         if (sprx <= -SPR_DRAWW) sprx <= H_RES;  // move back to right of screen
@@ -98,19 +101,54 @@ module sprite_top(
         .CORDW(CORDW),
         .H_RES(H_RES),
         .SX_OFFS(SX_OFFS),
-        .SPR_FILE(SPR_FILE),
-        .SPR_WIDTH(SPR_WIDTH),
-        .SPR_HEIGHT(SPR_HEIGHT)
-		) test_sprite (
+        .SPR_FILE(SMALLF_FILE),
+        .SPR_WIDTH(SMALLF_WIDTH),
+        .SPR_HEIGHT(SMALLF_HEIGHT)
+		) smallf (
         .clk(clk25),
         .rst(Reset),
         .line(line),
         .sx(hc),
         .sy(vc),
-        .sprx(sprx),
-        .spry(spry),
-        .pix(spr_pix_indx),
-        .drawing(drawing)
+        .sprx(smallf_x),
+        .spry(smallf_y),
+        .pix(smallf_pix),
+        .drawing(smallf_drawing)
+    );
+
+	// sprite parameters
+    localparam MY_WIDTH  =  96;  // bitmap width in pixels
+    localparam MY_HEIGHT =  32;  // bitmap height in pixels
+    localparam MY_FILE   = "my_drawing.mem";  // bitmap file
+	localparam MY_SCALE  =  2;  // 2^2 = 4x scale
+    // localparam SPR_DRAWW  = SPR_WIDTH * 2**SPR_SCALE;
+
+	//wire [CIDXW-1:0] spr_pix_indx;  // pixel colour index	
+	wire signed [CORDW-1:0] my_x, my_y;
+		assign my_x = 300;
+		assign my_y = 150;
+	wire [CIDXW-1:0] my_pix;
+	wire my_drawing;
+
+    sprite #(
+        .CORDW(CORDW),
+        .H_RES(H_RES),
+        .SX_OFFS(SX_OFFS),
+        .SPR_FILE(MY_FILE),
+        .SPR_WIDTH(MY_WIDTH),
+        .SPR_HEIGHT(MY_HEIGHT),
+		.SPR_SCALE(MY_SCALE),
+		.SPR_DATAW(CIDXW)
+		) my (
+        .clk(clk25),
+        .rst(Reset),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(my_x),
+        .spry(my_y),
+        .pix(my_pix),
+        .drawing(my_drawing)
     );
 
 	

@@ -1,33 +1,12 @@
 `timescale 1ns / 1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date:    12:15:38 12/14/2017 
-// Design Name: 
-// Module Name:    vgaBitChange 
-// Project Name: 
-// Target Devices: 
-// Tool versions: 
-// Description: 
-//
-// Dependencies: 
-//
-// Revision: 
-// Revision 0.01 - File Created
-// Additional Comments: 
-//
-// Date: 04/04/2020
-// Author: Yue (Julien) Niu
-// Description: Port from NEXYS3 to NEXYS4
-//////////////////////////////////////////////////////////////////////////////////
-module vga_bitchange(
+
+module vga_bitchange#(parameter CIDXW=1)(
 	input clk,
 	input bright,
 	input button,
 	input [9:0] hCount, vCount,
 	input spr_drawing,
-	input spr_indx,
+	input [CIDXW-1:0] spr_indx,
 	output reg [11:0] rgb,
 	output reg [15:0] score
    );
@@ -36,6 +15,7 @@ module vga_bitchange(
 	parameter WHITE = 12'b1111_1111_1111;
 	parameter RED   = 12'b1111_0000_0000;
 	parameter GREEN = 12'b0000_1111_0000;
+	parameter ORANGE = 12'b1110_1011_0011;
 	//parameter BLUE = 12'b0000_0000_1111;
 	parameter TEST_COLOR = 12'b0101_0111_0000;
 
@@ -55,16 +35,18 @@ module vga_bitchange(
 	always@ (*) // paint a white box on a red background
     	if (~bright)
 		rgb = BLACK; // force black if not bright
-	 else if(spr_drawing && spr_indx)
+	 else if(spr_drawing && (spr_indx == 1'b1))
 	 	rgb = BLACK;
+	 else if(spr_drawing && (spr_indx == 2'b10))
+	 	rgb = ORANGE;
 	 else if (testArt)
 	 	rgb = TEST_COLOR;
-	 else if (greenMiddleSquare == 1)
-		rgb = GREEN;
+	 // else if (greenMiddleSquare == 1)
+		// rgb = GREEN;
 	 else if (whiteZone == 1)
 		rgb = WHITE; // white box
 	 else
-		rgb = RED; // background color
+		rgb = 12'b1110_1110_1110; // background color
 
 	
 	always@ (posedge clk)

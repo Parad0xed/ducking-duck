@@ -4,28 +4,32 @@ module sprite #(
     parameter SX_OFFS=2,     // horizontal screen offset (pixels)
     parameter SPR_FILE="",   // sprite bitmap file ($readmemh format)
     parameter SPR_WIDTH=8,   // sprite bitmap width in pixels
-    parameter SPR_HEIGHT=8  // sprite bitmap height in pixels
-    // parameter SPR_DATAW=1    // data width: bits per pixel
+    parameter SPR_HEIGHT=8,  // sprite bitmap height in pixels
+    parameter SPR_SCALE=1,
+    parameter SPR_DATAW=1    // data width: bits per pixel
     ) (
+    input  wire en,            // consider this to activate/deactivate a sprite? 
     input  wire clk,                            // clock
     input  wire rst,                            // reset
     input  wire line,                           // start of active screen line
     input  wire signed [CORDW-1:0] sx, sy,      // screen position
     input  wire signed [CORDW-1:0] sprx, spry,  // sprite position
-    // output      logic [SPR_DATAW-1:0] pix,            // pixel colour index
-    output reg [3:0] state,     // for debugging
-    output reg [$clog2(SPR_WIDTH)-1:0] bmap_x,
-    output      reg pix,
-    output      reg drawing                         // drawing at position (sx,sy)
+    // output reg [3:0] state,     // for debugging
+    // output reg [$clog2(SPR_WIDTH)-1:0] bmap_x,
+    // output reg [$clog2(SPR_ROM_DEPTH)-1:0] spr_rom_addr,
+    // output [$clog2(SPR_ROM_DEPTH)-1:0] addr_return,
+    output      reg [SPR_DATAW-1:0] pix,                        // use [SPR_DATAW-1:0] for >1 bit pix
+    output      reg drawing                     // drawing at position (sx,sy)
     );
 
     // sprite bitmap ROM
     localparam SPR_ROM_DEPTH = SPR_WIDTH * SPR_HEIGHT;
     reg [$clog2(SPR_ROM_DEPTH)-1:0] spr_rom_addr;  // pixel position
-    wire spr_rom_data;  // pixel colour
+    wire [SPR_DATAW-1:0] spr_rom_data;  // pixel color
     wire [$clog2(SPR_ROM_DEPTH)-1:0] addr_return; // for debugging
+    // change name??
     rom_async #(
-        .WIDTH(1), // SPR_DATAW),
+        .WIDTH(SPR_DATAW), // SPR_DATAW),
         .DEPTH(SPR_ROM_DEPTH),
         .INIT_F(SPR_FILE)
     ) spr_rom (
@@ -38,10 +42,14 @@ module sprite #(
     // horizontal coordinate within sprite bitmap
     reg [$clog2(SPR_WIDTH)-1:0] bmap_x;
 
+    // horizontal scale counter
+    reg [SPR_SCALE:0] cnt_x;
+
     // for registering sprite position
     reg signed [CORDW-1:0] sprx_r, spry_r;
 
     // status flags: used to change state
+    wire signed [CORDW-1:0]  spr_diff;  // diff vertical screen and sprite positions
     wire spr_active;  // sprite active on this line
     wire spr_begin;   // begin sprite drawing
     wire spr_end;     // end of sprite on this line
@@ -80,13 +88,11 @@ module sprite #(
                     end
                 end
                 SPR_LINE: begin
+                    // extra state to wait for data from synchronous rom
                     state <= TEST;
-                    if (spr_end || line_end) state <= WAIT_DATA;
+                    if (spr_end || line_end) state <= WAIT_DATA; // is this line necessary??
                     spr_rom_addr <= spr_rom_addr + 1;
-                    // bmap_x <= bmap_x + 1;
-                    // pix <= spr_rom_data;
-                    // drawing <= 1;
-                    $display("read a %h at address spr rom addr = %h IN SPR", spr_rom_data, addr_return);
+                    $display("read a %h at addr = %h IN SPRL, state = %d, SP = %h", spr_rom_data, addr_return, state, spr_rom_addr);
                 end
                 TEST: begin
                     if (spr_end || line_end) state <= WAIT_DATA;
@@ -94,11 +100,11 @@ module sprite #(
                     bmap_x <= bmap_x + 1;
                     pix <= spr_rom_data;
                     drawing <= 1;
-                    $display("read a %h at address spr rom addr = %h IN TEST", spr_rom_data, addr_return);
+                    $display("read a %h at addr = %h IN TEST, state = %d, SP = %h, hc = %d", spr_rom_data, addr_return, state, spr_rom_addr, sx);
                 end
                 WAIT_DATA: begin
                     state <= IDLE;  // 1 cycle between address set and data receipt
-                    pix <= 0;  // default colour
+                    pix <= 0;  // default color
                     drawing <= 0;
                 end
                 default: state <= IDLE;

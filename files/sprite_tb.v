@@ -13,15 +13,16 @@ module sprite_tb;
 	reg		Reset; // , ClkPort;
 
 	wire line;
-	wire drawing;  // drawing at (sx,sy)
-	wire spr_pix_indx;
-    
+	
 
 	wire bright;
 	wire[9:0] hc, vc;
 	wire clk25;
     wire[3:0] state;
-    wire[$clog2(SPR_WIDTH)-1:0] bmap_x;
+    wire[$clog2(SPR_WIDTH)-1:0] bmap_x1, bmap_x2;
+    wire [$clog2(SPR_ROM_DEPTH)-1:0] ra;
+    wire [$clog2(SPR_ROM_DEPTH)-1:0] sp;
+
     display_controller dc(.clk(Clk), .hSync(hSync), .vSync(vSync), .bright(bright), .hCount(hc), .vCount(vc), .line(line), .clk25(clk25));
 
 
@@ -30,14 +31,27 @@ module sprite_tb;
 
     // sprite parameters
     localparam SX_OFFS    = 2;  // horizontal screen offset (pixels)
-    localparam SPR_FILE   = "letter_f.mem";
-    localparam SPR_WIDTH  = 8;  // width in pixels
-    localparam SPR_HEIGHT = 8;  // height in pixels
+    localparam SPR_FILE   = "my_drawing.mem";
+    localparam SPR_WIDTH  = 96;  // width in pixels
+    localparam SPR_HEIGHT = 32;  // height in pixels
     // localparam SPR_SCALE  = 2;  // 2^1 = 2x scale
-    // localparam SPR_DATAW  = 1;  // bits per pixel
+    localparam SPR_DATAW  = 2;  // bits per pixel
+
+    wire drawing;  // drawing at (sx,sy)
+    wire drawing1, drawing2;
+	wire [SPR_DATAW-1:0] spr_pix_indx;
+    
+
+    localparam SPR_ROM_DEPTH = SPR_WIDTH * SPR_HEIGHT;
 
     // draw sprite at position (sprx,spry)
     reg signed [CORDW-1:0] sprx, spry;
+
+    wire [SPR_DATAW-1:0] pix1, pix2;
+
+    wire [SPR_DATAW-1:0] spr_pix_indx;
+    assign spr_pix_indx = pix1 ? pix1 : (pix2 ? pix2 : 0);
+	assign drawing = drawing1 || drawing2;
 
     sprite #(
         .CORDW(CORDW),
@@ -45,8 +59,9 @@ module sprite_tb;
         .SX_OFFS(SX_OFFS),
         .SPR_FILE(SPR_FILE),
         .SPR_WIDTH(SPR_WIDTH),
-        .SPR_HEIGHT(SPR_HEIGHT)
-		) test_sprite (
+        .SPR_HEIGHT(SPR_HEIGHT),
+        .SPR_DATAW(SPR_DATAW)
+		) test_sprite1 (
         .clk(clk25),
         .rst(Reset),
         .line(line),
@@ -54,10 +69,36 @@ module sprite_tb;
         .sy(vc),
         .sprx(sprx),
         .spry(spry),
-        .pix(spr_pix_indx),
-        .drawing(drawing),
+        .pix(pix1),
+        .drawing(drawing1),
         .state(state),
-        .bmap_x(bmap_x)
+        .bmap_x(bmap_x1),
+        .spr_rom_addr(sp),
+        .addr_return(ra)
+    );
+
+    sprite #(
+        .CORDW(CORDW),
+        .H_RES(H_RES),
+        .SX_OFFS(SX_OFFS),
+        .SPR_FILE(SPR_FILE),
+        .SPR_WIDTH(SPR_WIDTH),
+        .SPR_HEIGHT(SPR_HEIGHT),
+        .SPR_DATAW(SPR_DATAW)
+		) test_sprite2 (
+        .clk(clk25),
+        .rst(Reset),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(300),
+        .spry(0),
+        .pix(pix2),
+        .drawing(drawing2),
+        .state(state),
+        .bmap_x(bmap_x2),
+        .spr_rom_addr(sp),
+        .addr_return(ra)
     );
 
     initial 
