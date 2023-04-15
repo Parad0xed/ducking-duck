@@ -31,10 +31,10 @@ module sprite_tb;
 
     // sprite parameters
     localparam SX_OFFS    = 2;  // horizontal screen offset (pixels)
-    localparam SPR_FILE   = "my_drawing.mem";
-    localparam SPR_WIDTH  = 96;  // width in pixels
-    localparam SPR_HEIGHT = 32;  // height in pixels
-    // localparam SPR_SCALE  = 2;  // 2^1 = 2x scale
+    localparam SPR_FILE   = "letter_f.mem";
+    localparam SPR_WIDTH  = 8;  // width in pixels
+    localparam SPR_HEIGHT = 8;  // height in pixels
+    localparam SPR_SCALE  = 1;  // 2^1 = 2x scale
     localparam SPR_DATAW  = 2;  // bits per pixel
 
     wire drawing;  // drawing at (sx,sy)
@@ -46,12 +46,12 @@ module sprite_tb;
 
     // draw sprite at position (sprx,spry)
     reg signed [CORDW-1:0] sprx, spry;
-
+    wire [SPR_SCALE:0] cnt_x;
     wire [SPR_DATAW-1:0] pix1, pix2;
 
     wire [SPR_DATAW-1:0] spr_pix_indx;
-    assign spr_pix_indx = pix1 ? pix1 : (pix2 ? pix2 : 0);
-	assign drawing = drawing1 || drawing2;
+    // assign spr_pix_indx = pix1 ? pix1 : (pix2 ? pix2 : 0);
+	// assign drawing = drawing1 || drawing2;
 
     sprite #(
         .CORDW(CORDW),
@@ -60,7 +60,8 @@ module sprite_tb;
         .SPR_FILE(SPR_FILE),
         .SPR_WIDTH(SPR_WIDTH),
         .SPR_HEIGHT(SPR_HEIGHT),
-        .SPR_DATAW(SPR_DATAW)
+        .SPR_DATAW(SPR_DATAW),
+        .SPR_SCALE(SPR_SCALE)
 		) test_sprite1 (
         .clk(clk25),
         .rst(Reset),
@@ -74,32 +75,33 @@ module sprite_tb;
         .state(state),
         .bmap_x(bmap_x1),
         .spr_rom_addr(sp),
-        .addr_return(ra)
+        .addr_return(ra),
+        .cnt_x(cnt_x)
     );
 
-    sprite #(
-        .CORDW(CORDW),
-        .H_RES(H_RES),
-        .SX_OFFS(SX_OFFS),
-        .SPR_FILE(SPR_FILE),
-        .SPR_WIDTH(SPR_WIDTH),
-        .SPR_HEIGHT(SPR_HEIGHT),
-        .SPR_DATAW(SPR_DATAW)
-		) test_sprite2 (
-        .clk(clk25),
-        .rst(Reset),
-        .line(line),
-        .sx(hc),
-        .sy(vc),
-        .sprx(300),
-        .spry(0),
-        .pix(pix2),
-        .drawing(drawing2),
-        .state(state),
-        .bmap_x(bmap_x2),
-        .spr_rom_addr(sp),
-        .addr_return(ra)
-    );
+    // sprite #(
+    //     .CORDW(CORDW),
+    //     .H_RES(H_RES),
+    //     .SX_OFFS(SX_OFFS),
+    //     .SPR_FILE(SPR_FILE),
+    //     .SPR_WIDTH(SPR_WIDTH),
+    //     .SPR_HEIGHT(SPR_HEIGHT),
+    //     .SPR_DATAW(SPR_DATAW)
+	// 	) test_sprite2 (
+    //     .clk(clk25),
+    //     .rst(Reset),
+    //     .line(line),
+    //     .sx(hc),
+    //     .sy(vc),
+    //     .sprx(300),
+    //     .spry(0),
+    //     .pix(pix2),
+    //     .drawing(drawing2),
+    //     .state(state),
+    //     .bmap_x(bmap_x2),
+    //     .spr_rom_addr(sp),
+    //     .addr_return(ra)
+    // );
 
     initial 
 		  begin

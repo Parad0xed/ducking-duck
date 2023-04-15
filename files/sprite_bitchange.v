@@ -35,10 +35,20 @@ module vga_bitchange#(parameter CIDXW=1)(
 	always@ (*) // paint a white box on a red background
     	if (~bright)
 		rgb = BLACK; // force black if not bright
-	 else if(spr_drawing && (spr_indx == 1'b1))
-	 	rgb = BLACK;
-	 else if(spr_drawing && (spr_indx == 2'b10))
-	 	rgb = ORANGE;
+	 else if(spr_drawing && (spr_indx == 3'b001))
+	 	rgb = 12'b111110100101;
+	 else if(spr_drawing && (spr_indx == 3'b010))
+	 	rgb = 12'b111110111011;
+	else if(spr_drawing && (spr_indx == 3'b011))
+	 	rgb = 12'b111101101001;
+	else if(spr_drawing && (spr_indx == 3'b100))
+	 	rgb = 12'b101101001000;
+	else if(spr_drawing && (spr_indx == 3'b101))
+	 	rgb = 12'b100010111110;
+	else if(spr_drawing && (spr_indx == 3'b110))
+	 	rgb = 12'b010001011010;
+	else if(spr_drawing && (spr_indx == 3'b111))
+	 	rgb = 12'b010000110111;
 	 else if (testArt)
 	 	rgb = TEST_COLOR;
 	 // else if (greenMiddleSquare == 1)

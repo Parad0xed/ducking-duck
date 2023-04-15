@@ -27,8 +27,8 @@ module sprite_top(
 	wire drawing;  // drawing at (sx,sy)
 	wire [CIDXW-1:0] spr_pix_indx;
 
-	assign spr_pix_indx = my_pix ? my_pix : (smallf_pix ? smallf_pix : 0);
-	assign drawing = smallf_drawing || my_drawing;
+	assign spr_pix_indx = my_pix | duck_pix; // my_pix ? my_pix : (smallf_pix ? smallf_pix : 0);	// // nvm also need for color. or else evals to boolean. unless bitwise or? need this if pixels overlap
+	assign drawing = my_drawing || duck_drawing;
 
 	wire bright;
 	wire[9:0] hc, vc;
@@ -65,27 +65,13 @@ module sprite_top(
 
 
 
-	// sprite parameters
-    localparam SX_OFFS    =  2;  // horizontal screen offset (pixels): +1 for CLUT
-    localparam SMALLF_WIDTH  =  8;  // bitmap width in pixels
-    localparam SMALLF_HEIGHT =  8;  // bitmap height in pixels
-    // localparam SPR_SCALE  =  2;  // 2^2 = 4x scale
-    // localparam SPR_DRAWW  = SPR_WIDTH * 2**SPR_SCALE;  // draw width
-    // localparam SPR_SPX    =  2;  // horizontal speed (pixels/frame)
-    localparam SMALLF_FILE   = "letter_f.mem";  // bitmap file
-	localparam SPR_DATAW  =  1;
+	// constant parameters
+    localparam SX_OFFS=2;  // horizontal screen offset (pixels): +1 for CLUT
 	localparam H_RES=784;
 	localparam CORDW=10;
-	localparam SPRX = 150;  // horizontal position
-    localparam SPRY = 50;  // vertical position
-	localparam CIDXW = 2;
+	localparam CIDXW=3; // maybe not constant if need space
 
-	//wire [CIDXW-1:0] spr_pix_indx;  // pixel colour index	
-	wire signed [CORDW-1:0] smallf_x, smallf_y;
-	assign smallf_x = 150;
-	assign smallf_y = 50;
-
-	wire smallf_pix, smallf_drawing;
+	
 	// always_ff @(posedge clk_pix) begin
     //     if (frame) begin
     //         if (sprx <= -SPR_DRAWW) sprx <= H_RES;  // move back to right of screen
@@ -97,36 +83,56 @@ module sprite_top(
     //     end
     // end
 
+	// sprite parameters
+    localparam DUCK_WIDTH  =  64;  // bitmap width in pixels
+    localparam DUCK_HEIGHT =  64;  // bitmap height in pixels
+    localparam DUCK_FILE   = "duck.mem";  // bitmap file
+	localparam DUCK_SCALE  =  3;  // 2^2 = 4x scale
+    // localparam SPR_DRAWW  = SPR_WIDTH * 2**SPR_SCALE;
+
+	//wire [CIDXW-1:0] spr_pix_indx;  // pixel colour index	
+	wire signed [CORDW-1:0] duck_x, duck_y;
+		assign duck_x = 250;
+		assign duck_y = 150;
+	wire [CIDXW-1:0] duck_pix;
+	wire duck_drawing;
+
     sprite #(
         .CORDW(CORDW),
         .H_RES(H_RES),
         .SX_OFFS(SX_OFFS),
-        .SPR_FILE(SMALLF_FILE),
-        .SPR_WIDTH(SMALLF_WIDTH),
-        .SPR_HEIGHT(SMALLF_HEIGHT)
-		) smallf (
+        .SPR_FILE(DUCK_FILE),
+        .SPR_WIDTH(DUCK_WIDTH),
+        .SPR_HEIGHT(DUCK_HEIGHT),
+		.SPR_SCALE(DUCK_SCALE),
+		.SPR_DATAW(CIDXW)
+		) duck (
         .clk(clk25),
         .rst(Reset),
         .line(line),
         .sx(hc),
         .sy(vc),
-        .sprx(smallf_x),
-        .spry(smallf_y),
-        .pix(smallf_pix),
-        .drawing(smallf_drawing)
+        .sprx(duck_x),
+        .spry(duck_y),
+        .pix(duck_pix),
+        .drawing(duck_drawing)
     );
 
+
+
+
+
 	// sprite parameters
-    localparam MY_WIDTH  =  96;  // bitmap width in pixels
+    localparam MY_WIDTH  =  70;  // bitmap width in pixels
     localparam MY_HEIGHT =  32;  // bitmap height in pixels
-    localparam MY_FILE   = "my_drawing.mem";  // bitmap file
-	localparam MY_SCALE  =  2;  // 2^2 = 4x scale
+    localparam MY_FILE   = "title.mem";  // bitmap file
+	localparam MY_SCALE  =  3;  // 2^2 = 4x scale
     // localparam SPR_DRAWW  = SPR_WIDTH * 2**SPR_SCALE;
 
 	//wire [CIDXW-1:0] spr_pix_indx;  // pixel colour index	
 	wire signed [CORDW-1:0] my_x, my_y;
-		assign my_x = 300;
-		assign my_y = 150;
+		assign my_x = 160;
+		assign my_y = 50;
 	wire [CIDXW-1:0] my_pix;
 	wire my_drawing;
 
@@ -149,6 +155,38 @@ module sprite_top(
         .spry(my_y),
         .pix(my_pix),
         .drawing(my_drawing)
+    );
+
+	// sprite parameters
+	localparam BIGMY_SCALE  =  2;  // 2^2 = 4x scale
+    // localparam SPR_DRAWW  = SPR_WIDTH * 2**SPR_SCALE;
+
+	//wire [CIDXW-1:0] spr_pix_indx;  // pixel colour index	
+	wire signed [CORDW-1:0] bigmy_x, bigmy_y;
+		assign bigmy_x = 350;
+		assign bigmy_y = 250;
+	wire [CIDXW-1:0] bigmy_pix;
+	wire bigmy_drawing;
+
+    sprite #(
+        .CORDW(CORDW),
+        .H_RES(H_RES),
+        .SX_OFFS(SX_OFFS),
+        .SPR_FILE(MY_FILE),
+        .SPR_WIDTH(MY_WIDTH),
+        .SPR_HEIGHT(MY_HEIGHT),
+		.SPR_SCALE(BIGMY_SCALE),
+		.SPR_DATAW(CIDXW)
+		) bigmy (
+        .clk(clk25),
+        .rst(Reset),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(bigmy_x),
+        .spry(bigmy_y),
+        .pix(bigmy_pix),
+        .drawing(bigmy_drawing)
     );
 
 	
