@@ -65,14 +65,14 @@ def rom_12_bit(name, im, mask=False, rem_x=-1, rem_y=-1):
 
             color = get_color_bits(im, y, x)
 
-            if (color == "000000000000"): # w
+            if (color == "000000000000"): # TRANSPARENT
                     f.write("0 ")
             elif color ==  "111111111111": # w
-                    f.write("0 ")
-            elif color ==  "111110100101": # o
                     f.write("1 ")
-            elif color ==  "111110111011": # p1
+            elif color ==  "111110100101": # o
                     f.write("2 ")
+            elif color ==  "111110111011": # p1
+                    f.write("3 ")
             elif color ==  "111101101001": # p2
                     f.write("3 ")
             elif color ==  "101101001000": # p3

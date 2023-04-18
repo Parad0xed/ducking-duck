@@ -28,6 +28,7 @@ module sprite_tb;
 
     // screen dimensions (must match display_inst)
     localparam H_RES = 784;
+    localparam CIDXW = 3;
 
     // sprite parameters
     localparam SX_OFFS    = 2;  // horizontal screen offset (pixels)
@@ -44,7 +45,39 @@ module sprite_tb;
 
     localparam SPR_ROM_DEPTH = SPR_WIDTH * SPR_HEIGHT;
 
-    // draw sprite at position (sprx,spry)
+
+    localparam NAME_WIDTH  =  92;  // bitmap width in pixels
+    localparam NAME_HEIGHT =  18;  // bitmap height in pixels
+    localparam NAME_FILE   = "name.mem";  // bitmap file
+	localparam NAME_SCALE  =  0;  // 2^2 = 4x scale
+    // localparam SPR_DRAWW  = SPR_WIDTH * 2**SPR_SCALE;
+
+	wire signed [CORDW-1:0] name_x, name_y;
+    assign name_x = 5, name_y = 0; 
+    reg name_en;
+	wire [CIDXW-1:0] name_pix;
+	wire name_drawing;
+
+    sprite #(
+        .SPR_FILE(NAME_FILE),
+        .SPR_WIDTH(NAME_WIDTH),
+        .SPR_HEIGHT(NAME_HEIGHT),
+		.SPR_SCALE(NAME_SCALE)
+    ) name (
+        .clk(clk25),
+        .rst(Reset),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(name_x),
+        .spry(name_y),
+        .pix(name_pix),
+        .drawing(name_drawing),
+        .en(name_en)
+    );
+
+    /*
+    draw sprite at position (sprx,spry)
     reg signed [CORDW-1:0] sprx, spry;
     wire [SPR_SCALE:0] cnt_x;
     wire [SPR_DATAW-1:0] pix1, pix2;
@@ -79,29 +112,30 @@ module sprite_tb;
         .cnt_x(cnt_x)
     );
 
-    // sprite #(
-    //     .CORDW(CORDW),
-    //     .H_RES(H_RES),
-    //     .SX_OFFS(SX_OFFS),
-    //     .SPR_FILE(SPR_FILE),
-    //     .SPR_WIDTH(SPR_WIDTH),
-    //     .SPR_HEIGHT(SPR_HEIGHT),
-    //     .SPR_DATAW(SPR_DATAW)
-	// 	) test_sprite2 (
-    //     .clk(clk25),
-    //     .rst(Reset),
-    //     .line(line),
-    //     .sx(hc),
-    //     .sy(vc),
-    //     .sprx(300),
-    //     .spry(0),
-    //     .pix(pix2),
-    //     .drawing(drawing2),
-    //     .state(state),
-    //     .bmap_x(bmap_x2),
-    //     .spr_rom_addr(sp),
-    //     .addr_return(ra)
-    // );
+    sprite #(
+        .CORDW(CORDW),
+        .H_RES(H_RES),
+        .SX_OFFS(SX_OFFS),
+        .SPR_FILE(SPR_FILE),
+        .SPR_WIDTH(SPR_WIDTH),
+        .SPR_HEIGHT(SPR_HEIGHT),
+        .SPR_DATAW(SPR_DATAW)
+		) test_sprite2 (
+        .clk(clk25),
+        .rst(Reset),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(300),
+        .spry(0),
+        .pix(pix2),
+        .drawing(drawing2),
+        .state(state),
+        .bmap_x(bmap_x2),
+        .spr_rom_addr(sp),
+        .addr_return(ra)
+    );
+    */
 
     initial 
 		  begin
@@ -110,12 +144,18 @@ module sprite_tb;
 		
     always  begin #20; Clk = ~ Clk; end
 
+    always @(posedge Clk)
+        if(name_pix)
+                $display("NAME_PIX TRUEEEE");
+
     initial begin
         Reset = 1;
         Clk = 0;
-        sprx = 143;
-        spry = 0;
+        
         #120 Reset = 0;
+
+        name_en = 1;
+        
 
         #43000
         #43000

@@ -1,5 +1,5 @@
 
-module rom_async #(parameter WIDTH=8,
+module rom #(parameter WIDTH=8,
     parameter DEPTH=256,
     parameter INIT_F="",
     localparam ADDRW=$clog2(DEPTH)

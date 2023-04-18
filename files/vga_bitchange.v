@@ -6,7 +6,7 @@ module vga_bitchange#(parameter CIDXW=1)(
 	input button,
 	input [9:0] hCount, vCount,
 	input spr_drawing,
-	input [CIDXW-1:0] spr_indx,
+	input [CIDXW:0] spr_indx,
 	output reg [11:0] rgb,
 	output reg [15:0] score
    );
@@ -15,11 +15,16 @@ module vga_bitchange#(parameter CIDXW=1)(
 	parameter WHITE = 12'b1111_1111_1111;
 	parameter RED   = 12'b1111_0000_0000;
 	parameter GREEN = 12'b0000_1111_0000;
-	parameter ORANGE = 12'b1110_1011_0011;
-	//parameter BLUE = 12'b0000_0000_1111;
-	parameter TEST_COLOR = 12'b0101_0111_0000;
+	parameter O  = 12'b111110100101;
+	parameter P1 = 12'b111110111011;
+	parameter P2 = 12'b111101101001;
+	parameter P3 = 12'b101101001000;
+	parameter B1 = 12'b100010111110;
+	parameter B2 = 12'b010001011010;
+	parameter B3 = 12'b010000110111;
+	parameter TEXTCLR = 12'b000000000000;
+	parameter BGCLR = 12'b1110_1110_1110;
 
-	wire whiteZone;
 	wire greenMiddleSquare;
 	reg reset;
 	reg[9:0] greenMiddleSquareY;
@@ -32,32 +37,29 @@ module vga_bitchange#(parameter CIDXW=1)(
 	end
 	
 	
-	always@ (*) // paint a white box on a red background
+	always@ (*) // BIT CHANGE
+	begin
     	if (~bright)
-		rgb = BLACK; // force black if not bright
-	 else if(spr_drawing && (spr_indx == 3'b001))
-	 	rgb = 12'b111110100101;
-	 else if(spr_drawing && (spr_indx == 3'b010))
-	 	rgb = 12'b111110111011;
-	else if(spr_drawing && (spr_indx == 3'b011))
-	 	rgb = 12'b111101101001;
-	else if(spr_drawing && (spr_indx == 3'b100))
-	 	rgb = 12'b101101001000;
-	else if(spr_drawing && (spr_indx == 3'b101))
-	 	rgb = 12'b100010111110;
-	else if(spr_drawing && (spr_indx == 3'b110))
-	 	rgb = 12'b010001011010;
-	else if(spr_drawing && (spr_indx == 3'b111))
-	 	rgb = 12'b010000110111;
-	 else if (testArt)
-	 	rgb = TEST_COLOR;
-	 // else if (greenMiddleSquare == 1)
-		// rgb = GREEN;
-	 else if (whiteZone == 1)
-		rgb = WHITE; // white box
-	 else
-		rgb = 12'b1110_1110_1110; // background color
-
+			rgb = BLACK; // force black if not bright
+		else if(spr_drawing && (spr_indx == 3'b001)) // FORCE BG
+			rgb = BGCLR;
+		else if(spr_drawing && (spr_indx == 3'b010))
+			rgb = O;	
+		else if(spr_drawing && (spr_indx == 3'b011))
+			rgb = P2;
+		else if(spr_drawing && (spr_indx == 3'b100))
+			rgb = P3;
+		else if(spr_drawing && (spr_indx == 3'b101))
+			rgb = B1;
+		else if(spr_drawing && (spr_indx == 3'b110))
+			rgb = B2;
+		else if(spr_drawing && (spr_indx == 3'b111))
+			rgb = B3;
+		else if(spr_drawing && (spr_indx == 4'b1000))
+			rgb = TEXTCLR;
+		else // DEFAULT BG
+			rgb = BGCLR; 
+	end
 	
 	always@ (posedge clk)
 		begin
@@ -84,12 +86,20 @@ module vga_bitchange#(parameter CIDXW=1)(
 			reset = 1'b0;
 			end
 
-	assign whiteZone = ((hCount >= 10'd144) && (hCount <= 10'd784)) && ((vCount >= 10'd400) && (vCount <= 10'd475)) ? 1 : 0;
 
 	assign greenMiddleSquare = ((hCount >= 10'd340) && (hCount < 10'd380)) &&
 				   ((vCount >= greenMiddleSquareY) && (vCount <= greenMiddleSquareY + 10'd40)) ? 1 : 0;
 
-	assign testArt = ((((hCount >= 10'd200) && (hCount <= 10'd220)) && ((vCount >= 10'd400) && (vCount <= 10'd475)))|| 
-						(((hCount >= 10'd280) && (hCount <= 10'd300)) && ((vCount >= 10'd400) && (vCount <= 10'd475)))) ? 1:0;
+	/*
+	// bg generation
+	assign obst1_pix = rectangle of size depending on type, located at xpos1, ypos1
+	10 registers for : xpos, ypos, type 
+	every few clocks (26+), randomize in {0, obstacle 1, obstacle 2, ...}
+	store to empty register (with invalid xpos. or size = 0?)
+	in bitchange, decide rgb based on type. 
+
+	// non obstacle bg
+	can be hard coded maybe? and looped. 
+	*/
 	
 endmodule

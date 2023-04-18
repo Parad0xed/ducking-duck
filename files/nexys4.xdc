@@ -203,11 +203,11 @@ set_property PACKAGE_PIN E16 [get_ports BtnC]
 set_property PACKAGE_PIN F15 [get_ports BtnU]						
 	set_property IOSTANDARD LVCMOS33 [get_ports BtnU]
 #Bank = CONFIG, Pin name = IO_L15N_T2_DQS_DOUT_CSO_B_14,	Sch name = BTNL
-#set_property PACKAGE_PIN T16 [get_ports BtnL]						
-#	set_property IOSTANDARD LVCMOS33 [get_ports BtnL]
+set_property PACKAGE_PIN T16 [get_ports BtnL]						
+	set_property IOSTANDARD LVCMOS33 [get_ports BtnL]
 #Bank = 14, Pin name = IO_25_14,							Sch name = BTNR
-#set_property PACKAGE_PIN R10 [get_ports BtnR]						
-#	set_property IOSTANDARD LVCMOS33 [get_ports BtnR]
+set_property PACKAGE_PIN R10 [get_ports BtnR]						
+	set_property IOSTANDARD LVCMOS33 [get_ports BtnR]
 #Bank = 14, Pin name = IO_L21P_T3_DQS_14,					Sch name = BTND
 set_property PACKAGE_PIN V10 [get_ports BtnD]						
 	set_property IOSTANDARD LVCMOS33 [get_ports BtnD]

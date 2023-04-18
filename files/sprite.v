@@ -1,12 +1,12 @@
 module sprite #(
     parameter CORDW=10,      // signed coordinate width (bits)
-    parameter H_RES=640,     // horizontal screen resolution (pixels)
+    parameter H_RES=784,     // horizontal screen resolution (pixels)
     parameter SX_OFFS=2,     // horizontal screen offset (pixels)
     parameter SPR_FILE="",   // sprite bitmap file ($readmemh format)
     parameter SPR_WIDTH=8,   // sprite bitmap width in pixels
     parameter SPR_HEIGHT=8,  // sprite bitmap height in pixels
     parameter SPR_SCALE=0,
-    parameter SPR_DATAW=1    // data width: bits per pixel
+    parameter SPR_DATAW=3    // data width: bits per pixel
     ) (
     input  wire en,            // consider this to activate/deactivate a sprite? 
     input  wire clk,                            // clock
@@ -14,11 +14,11 @@ module sprite #(
     input  wire line,                           // start of active screen line
     input  wire signed [CORDW-1:0] sx, sy,      // screen position
     input  wire signed [CORDW-1:0] sprx, spry,  // sprite position
-    // output reg [3:0] state,     // for debugging
-    // output reg [$clog2(SPR_WIDTH)-1:0] bmap_x,
-    // output reg [$clog2(SPR_ROM_DEPTH)-1:0] spr_rom_addr,
-    // output [$clog2(SPR_ROM_DEPTH)-1:0] addr_return,
-    // output reg [SPR_SCALE:0] cnt_x,
+    output reg [3:0] state,     // for debugging
+    output reg [$clog2(SPR_WIDTH)-1:0] bmap_x,
+    output reg [$clog2(SPR_ROM_DEPTH)-1:0] spr_rom_addr,
+    output [$clog2(SPR_ROM_DEPTH)-1:0] addr_return,
+    output reg [SPR_SCALE:0] cnt_x,
     output      reg [SPR_DATAW-1:0] pix,                        // use [SPR_DATAW-1:0] for >1 bit pix
     output      reg drawing                     // drawing at position (sx,sy)
     );
@@ -29,7 +29,7 @@ module sprite #(
     wire [SPR_DATAW-1:0] spr_rom_data;  // pixel color
     wire [$clog2(SPR_ROM_DEPTH)-1:0] addr_return; // for debugging
     // change name??
-    rom_async #(
+    rom #(
         .WIDTH(SPR_DATAW), // SPR_DATAW),
         .DEPTH(SPR_ROM_DEPTH),
         .INIT_F(SPR_FILE)
@@ -76,7 +76,7 @@ module sprite #(
             pix <= 0;
             drawing <= 0;
             
-        end else begin
+        end else if(en) begin
             case (state)
                 REG_POS: begin
                     state <= ACTIVE;
@@ -128,17 +128,12 @@ module sprite #(
                         cnt_x <= 0;
                     end else cnt_x <= cnt_x + 1;
                     $write("%h ",spr_rom_data);
-                    //$display("read a %h at addr = %h IN TEST, state = %d, SP = %h, hc = %d", spr_rom_data, addr_return, state, spr_rom_addr, sx);
+                    $display("read a %h at addr = %h IN TEST, state = %d, SP = %h, hc = %d", spr_rom_data, addr_return, state, spr_rom_addr, sx);
                 end
                 WAIT_DATA: begin
                     state <= IDLE;  // 1 cycle between address set and data receipt
                     pix <= 0;  // default color
                     drawing <= 0;
-
-                    /* QUESTIONS:
-                            why doesnt spr_rom_data overcount? it does when scale = 0, but not if else.
-
-                    */
                 end
                 default: state <= IDLE;
             endcase
