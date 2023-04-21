@@ -5,8 +5,8 @@ module vga_bitchange#(parameter CIDXW=1)(
 	input bright,
 	input button,
 	input [9:0] hCount, vCount,
-	input spr_drawing,
-	input [CIDXW:0] spr_indx,
+	input drawing,
+	input [CIDXW:0] pix,
 	output reg [11:0] rgb,
 	output reg [15:0] score
    );
@@ -41,21 +41,21 @@ module vga_bitchange#(parameter CIDXW=1)(
 	begin
     	if (~bright)
 			rgb = BLACK; // force black if not bright
-		else if(spr_drawing && (spr_indx == 3'b001)) // FORCE BG
+		else if(drawing && (pix == 3'b001)) // FORCE BG
 			rgb = BGCLR;
-		else if(spr_drawing && (spr_indx == 3'b010))
+		else if(drawing && (pix == 3'b010))
 			rgb = O;	
-		else if(spr_drawing && (spr_indx == 3'b011))
+		else if(drawing && (pix == 3'b011))
 			rgb = P2;
-		else if(spr_drawing && (spr_indx == 3'b100))
+		else if(drawing && (pix == 3'b100))
 			rgb = P3;
-		else if(spr_drawing && (spr_indx == 3'b101))
+		else if(drawing && (pix == 3'b101))
 			rgb = B1;
-		else if(spr_drawing && (spr_indx == 3'b110))
+		else if(drawing && (pix == 3'b110))
 			rgb = B2;
-		else if(spr_drawing && (spr_indx == 3'b111))
+		else if(drawing && (pix == 3'b111))
 			rgb = B3;
-		else if(spr_drawing && (spr_indx == 4'b1000))
+		else if(drawing && (pix == 4'b1000))
 			rgb = TEXTCLR;
 		else // DEFAULT BG
 			rgb = BGCLR; 

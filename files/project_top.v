@@ -49,7 +49,7 @@ module project_top(
 	wire BtnR_Pulse, BtnU_Pulse, BtnD_Signal;
 	wire line;
 	wire drawing;  // drawing at (sx,sy)
-	wire [CIDXW:0] pix;
+	wire [CIDXW:0] pix, char_pix, score_pix;
 	wire bright;
 	wire[9:0] hc, vc;
 	wire [6:0] ssdOut;
@@ -57,15 +57,10 @@ module project_top(
 	wire [11:0] rgb;
 	wire clk25;
 	display_controller dc(.clk(ClkPort), .hSync(hSync), .vSync(vSync), .bright(bright), .hCount(hc), .vCount(vc), .line(line), .clk25(clk25));
-	vga_bitchange #(.CIDXW(CIDXW)) vbc (.clk(ClkPort), .bright(bright), .button(BtnU), .spr_drawing(drawing) ,.spr_indx(pix), .hCount(hc), .vCount(vc), .rgb(rgb), .score(score));
-	core #(.CIDXW(CIDXW)) a (.Clk(ClkPort), .BtnR_Pulse(BtnR_Pulse), .BtnU_Pulse(BtnU_Pulse), .BtnD(BtnD_Signal), .Reset(Reset), .clk25(clk25), .line(line), .hc(hc), .vc(vc), .pix(pix), .drawing(drawing));
+	vga_bitchange #(.CIDXW(CIDXW)) vbc (.clk(ClkPort), .bright(bright), .button(BtnU), .drawing(drawing) ,.pix(pix), .hCount(hc), .vCount(vc), .rgb(rgb), .score(score));
+	core #(.CIDXW(CIDXW)) a (.Clk(ClkPort), .BtnR_Pulse(BtnR_Pulse), .BtnU_Pulse(BtnU_Pulse), .BtnD(BtnD_Signal), .Reset(Reset), .clk25(clk25), .line(line), .hc(hc), .vc(vc), .pix(char_pix), .score_pix(score_pix), .drawing(drawing));
 	// state output ommitted ^
 
-
-	// Constant parameters
-	// localparam SX_OFFS=2;  // horizontal screen offset (pixels): +1 for CLUT
-	// localparam H_RES=784;
-	// localparam CORDW=10;
 	localparam CIDXW=3; // maybe not constant if need space	
 
 	// why doesn't N_dc need to be listed at module declarationa as a parameter ???
@@ -82,6 +77,7 @@ module project_top(
 		.SCEN(), .MCEN( ), .CCEN(BtnD_Signal ));
 
 	
+	assign pix = char_pix | score_pix; // for now. add background check when that part is done
 	
 	
 	
