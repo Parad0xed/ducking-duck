@@ -68,7 +68,7 @@ module project_top(
         (.CLK(ClkPort), .RESET(Reset), .PB(BtnR), .DPB( ), 
 		.SCEN(BtnR_Pulse), .MCEN( ), .CCEN( ));
 
-	debouncer #(.N_dc(28)) debounce2
+	debouncer #(.N_dc(15)) debounce2
         (.CLK(ClkPort), .RESET(Reset), .PB(BtnU), .DPB( ), 
 		.SCEN(BtnU_Pulse), .MCEN( ), .CCEN( ));
 		

@@ -16,6 +16,7 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
     reg [29:0] i_count;	// 2^30 = 1 073 741 824
     reg [21:0] x_count; // to deal with modulus operation. 2^22 = 4194304
     reg [1:0] jump_count; // to time character jump
+    reg [10:0] smalli, jump_time; // for varchar_y calculations
     reg [9:0] score; // for now, +1 per second, displayed in binary, caps at 1023
                      // consider displaying in decimal?
                      // in decimal : 
@@ -220,12 +221,19 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
                     x_count <= x_count+1;
                     if(x_count == 2500000) begin 
                         x_count <= 0;
-                        if(jump_count == 2'd0) begin // GOING UP (decrement y)
-                            varchar_y <= varchar_y-5;
-                        end
-                        else begin // GOING DOWN (increment y)
-                            varchar_y <= varchar_y+5;
-                        end
+                        // if(jump_count == 2'd0) begin // GOING UP (decrement y)
+                        //     // want change of +/- 100 px
+                        //     // varchar_y <= varchar_y-5; 
+                        //     smalli = i_count >> 5;
+                        //     jump_time = smalli + j_count*250; 
+                        //     varchar_y <= CHARY-100+(4*(jump_time-500)**2)/10000;
+                        // end
+                        // else begin // GOING DOWN (increment y)
+                        //     varchar_y <= varchar_y+5;
+                        // end
+                        smalli = i_count/100000;
+                        jump_time = smalli + jump_count*250; 
+                        varchar_y <= CHARY-100+(4*(jump_time-500)**2)/10000;
                     end
                 end
                 JUMP2: begin 
@@ -252,13 +260,16 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
                     
                     x_count <= x_count+1;
                     if(x_count == 2500000) begin 
-                        x_count <= 0;
-                        if(jump_count == 2'd1) begin // GOING UP (decrement y)
-                            varchar_y <= varchar_y-5;
-                        end
-                        else begin // GOING DOWN (increment y)
-                            varchar_y <= varchar_y+5;
-                        end
+                        // x_count <= 0;
+                        // if(jump_count == 2'd1) begin // GOING UP (decrement y)
+                        //     varchar_y <= varchar_y-5;
+                        // end
+                        // else begin // GOING DOWN (increment y)
+                        //     varchar_y <= varchar_y+5;
+                        // end
+                        smalli = i_count/100000;
+                        jump_time = smalli + jump_count*250; 
+                        varchar_y <= CHARY-100+(4*(jump_time-500)**2)/10000;
                     end
                 end
                 DUCK1: begin
@@ -340,7 +351,7 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
     localparam SCORE_DIGIT_WIDTH = 12; 
     localparam SCORE_SPACE_WIDTH = 4;
     localparam SCORE_LINE_WIDTH = 2;
-    localparam SCORE1X = 550;   // upper left corner, each digit is 
+    localparam SCORE1X = 630;   // upper left corner, each digit is 
     localparam SCORE10X = SCORE1X-(SCORE_DIGIT_WIDTH+SCORE_SPACE_WIDTH);
     localparam SCORE100X = SCORE1X-2*(SCORE_DIGIT_WIDTH+SCORE_SPACE_WIDTH);
     localparam SCORE1000X = SCORE1X-3*(SCORE_DIGIT_WIDTH+SCORE_SPACE_WIDTH);
@@ -648,7 +659,18 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
         //          be bitwise or'd before sending to vga_bitchange. drawing <= char || score is fine i think.
         IDLE, RUN1, RUN2, JUMP1, JUMP2, DUCK1, DUCK2: begin
             // this could cause all pix to be one clock delayed..
-            pix <= char_pix;
+            if ((state == DUCK1 || state == DUCK2)) begin 
+                if ((hc >= CHARX) && (hc < CHARX+CHAR_LONG_WIDTH*(2**CHAR_SCALE)) && (vc >= varchar_y) && (vc < varchar_y + CHAR_HEIGHT*(2**CHAR_SCALE))) // CHECK IF HC VC IN CHAR RANGE TO AVOID GLITCH
+                    pix <= char_pix;
+                else 
+                    pix <= 4'b0000;
+            end
+            else begin
+                if ((hc >= CHARX) && (hc < CHARX+CHAR_WIDTH*(2**CHAR_SCALE)) && (vc >= varchar_y) && (vc < varchar_y + CHAR_HEIGHT*(2**CHAR_SCALE))) // CHECK IF HC VC IN CHAR RANGE TO AVOID GLITCH
+                    pix <= char_pix;
+                else 
+                    pix <= 4'b0000;
+            end
             if (score1_pix || score10_pix || score100_pix || score1000_pix)
                 score_pix <= 4'b1000;
             else
