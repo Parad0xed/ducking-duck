@@ -1,10 +1,10 @@
 
-module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, BtnU_Pulse, BtnD, 
+module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, BtnL_Pulse, BtnU_Pulse, BtnD, 
         clk25, line, hc, vc, state, pix, score_pix, drawing);
 
 
 	/*  INPUTS */
-	input	Clk, BtnR_Pulse, BtnU_Pulse, BtnD, Reset; //, Start, Ack;
+	input	Clk, BtnR_Pulse, BtnL_Pulse, BtnU_Pulse, BtnD, Reset; //, Start, Ack;
     input clk25, line;
     input [CORDW-1:0] hc, vc;
     
@@ -17,17 +17,19 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
     reg [21:0] x_count; // to deal with modulus operation. 2^22 = 4194304
     reg [1:0] jump_count; // to time character jump
     reg [10:0] smalli, jump_time; // for varchar_y calculations
+    reg [19:0] timesquare;
     reg [9:0] score; // for now, +1 per second, displayed in binary, caps at 1023
                      // consider displaying in decimal?
                      // in decimal : 
     reg [3:0] score_th, score_hun, score_ten, score_one; // increment and cap at 9999
     reg [29:0] s_count; // for counting score
     reg score_en, score_count_en; // score_en for display, count_en to count score
-
+    reg char0or1;
 		
 	localparam 	
 	TITLE = 4'b0000, TITLE1 = 4'b0001, TITLE2 = 4'b0010, TITLE3 = 4'b0011, TITLE4 = 4'b0100, 
-        RUN1 = 4'b0101, RUN2 = 4'b0110, JUMP1 = 4'b0111, JUMP2 = 4'b1000, DUCK1 = 4'b1001, DUCK2 = 4'b1010, IDLE = 4'b1011, UNK = 4'bXXXX;
+        RUN1 = 4'b0101, RUN2 = 4'b0110, JUMP1 = 4'b0111, JUMP2 = 4'b1000, DUCK1 = 4'b1001, DUCK2 = 4'b1010, IDLE = 4'b1011, 
+        CHARSEL0 = 4'b1100, CHARSEL1 = 4'b1101, UNK = 4'bXXXX;
 	
     // sprite parameters
     localparam DUCK_WIDTH  =  64;  // bitmap width in pixels
@@ -117,12 +119,16 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
                     title_y <= 60;
                     i_count <= 0;
                     jump_count <= 0;
+                    jump_time <= 25;
+                    timesquare <= 902500;
                     x_count <= 0;
                     percent_shown <= 3;
                     duck_en <= 1;
                     title_en <= 1;
                     idle_en <= 0; run1_en <= 0; run2_en <= 0; jump1_en <= 0; jump2_en <= 0; duck1_en <= 0; duck2_en <= 0;
                     varchar_y <= CHARY;
+                    varchar_x <= CHARX; varchar_x1 <= CHARX;
+                    char0or1 <= 0;
                     // score vars: // need to do this in same block. figure this out on game lose + play again
                     // score_count_en <= 0;
                     // score_en <= 0;
@@ -158,6 +164,40 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
                     i_count <= i_count+1;
                     if(i_count == 50'd100000000) begin
                         i_count <= 0;
+                        state <= CHARSEL0;
+                    end
+                end
+
+                // CHAR SELECT STATES 
+                //      display should have: two chars, box around selected one, text: "BtnU to Select"
+                CHARSEL0: begin
+                    seltext_en <= 1;
+                    idle_en <= 1; idle1_en <= 1; varchar_x <= 350; varchar_x1 <= 470;
+                    // draw box around char0
+                    
+                    if(BtnR_Pulse) 
+                        state <= CHARSEL1;                        
+                    if(BtnU_Pulse) begin
+                        char0or1 <= 0;
+                        idle1_en <= 0;
+                        varchar_x <= CHARX;
+                        varchar_x1 <= CHARX;
+                        seltext_en <= 0;
+                        state <= IDLE;
+                    end
+                end
+                CHARSEL1: begin 
+                    // seltext_en <= 1;
+                    // draw box around char1
+                    
+                    if(BtnL_Pulse) 
+                        state <= CHARSEL0;
+                    if(BtnU_Pulse) begin
+                        char0or1 <= 1;
+                        idle_en <= 0;
+                        varchar_x <= CHARX;
+                        varchar_x1 <= CHARX;
+                        seltext_en <= 0;
                         state <= IDLE;
                     end
                 end
@@ -165,8 +205,11 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
                 IDLE: begin
                     score_en <= 1;
                     idle_en <= 1;
+                    idle1_en <= 1;
+                    varchar_x <= CHARX;
                     if(BtnU_Pulse) begin
                         idle_en <= 0;
+                        idle1_en <= 0;
                         state <= RUN1;
                     end
                 end
@@ -211,6 +254,8 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
                         state <= DUCK1;
                         varchar_y <= CHARY;
                         jump_count <= 0;
+                        jump_time <= 25;
+                        timesquare <= 902500;
                     end
                     else if(i_count == 50'd25000000) begin
                         i_count <= 0; jump1_en <= 0;
@@ -221,34 +266,46 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
                     x_count <= x_count+1;
                     if(x_count == 2500000) begin 
                         x_count <= 0;
-                        // if(jump_count == 2'd0) begin // GOING UP (decrement y)
-                        //     // want change of +/- 100 px
-                        //     // varchar_y <= varchar_y-5; 
-                        //     smalli = i_count >> 5;
-                        //     jump_time = smalli + j_count*250; 
-                        //     varchar_y <= CHARY-100+(4*(jump_time-500)**2)/10000;
-                        // end
-                        // else begin // GOING DOWN (increment y)
-                        //     varchar_y <= varchar_y+5;
-                        // end
-                        smalli = i_count/100000;
-                        jump_time = smalli + jump_count*250; 
-                        varchar_y <= CHARY-100+(4*(jump_time-500)**2)/10000;
+                        // parabolic height with vertex (500, -100)
+                        // smalli = i_count/100000;
+                        // jump_time = smalli + jump_count*250; 
+                        jump_time <= jump_time + 25;
+                        timesquare <= (((jump_time+25)-500)**2) << 2;
+                        varchar_y <= CHARY-100+(timesquare)/10000;
+                        // varchar_y <= CHARY-100+(4*(jump_time-500)**2)/10000;
+
                     end
                 end
                 JUMP2: begin 
                     jump2_en <= 1;
                     i_count <= i_count+1;
+                    
+                    
+                    x_count <= x_count+1;
+                    if(x_count == 2500000) begin 
+                        x_count <= 0;
+                        // parabolic height with vertex (500, -100) 
+                        // smalli = i_count/100000;
+                        // jump_time = smalli + jump_count*250; 
+                        jump_time <= jump_time + 25;
+                        timesquare <= (((jump_time+25)-500)**2) << 2;
+                        varchar_y <= CHARY-100+(timesquare)/10000;
+                        // varchar_y <= CHARY-100+(4*(jump_time-500)**2)/10000;
+                    end
                     if(BtnD) begin
                         i_count <= 0; jump2_en <= 0;
                         state <= DUCK1;
                         varchar_y <= CHARY;
                         jump_count <= 0;
+                        jump_time <= 25;
+                        timesquare <= 902500;
                     end
                     else if(i_count == 50'd25000000) begin
                         i_count <= 0; jump2_en <= 0;
                         if(jump_count == 3) begin 
                             jump_count <= 0;
+                            jump_time <= 25;
+                            timesquare <= 902500;
                             state <= RUN1;
                             varchar_y <= CHARY;
                         end
@@ -256,20 +313,6 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
                             jump_count <= jump_count+1;
                             state <= JUMP1;
                         end
-                    end
-                    
-                    x_count <= x_count+1;
-                    if(x_count == 2500000) begin 
-                        // x_count <= 0;
-                        // if(jump_count == 2'd1) begin // GOING UP (decrement y)
-                        //     varchar_y <= varchar_y-5;
-                        // end
-                        // else begin // GOING DOWN (increment y)
-                        //     varchar_y <= varchar_y+5;
-                        // end
-                        smalli = i_count/100000;
-                        jump_time = smalli + jump_count*250; 
-                        varchar_y <= CHARY-100+(4*(jump_time-500)**2)/10000;
                     end
                 end
                 DUCK1: begin
@@ -340,6 +383,9 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
                         end
                     end
                 end 
+//                if(score_one == 0 && score_ten == 0 && score_hun != 0) begin // MULTIPLES OF 100 
+//                    dive_mode <= dive_mode^1;
+//                end
             end
         end
     end
@@ -654,20 +700,43 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
                 pix <= 0;
             drawing <= name_drawing;
         end
-        // NOTE: will need a seperate output reg to store the score_pix because although score and char should not 
-        //          intersect, need to check intersection of char and bg in another module. score and char pix can 
-        //          be bitwise or'd before sending to vga_bitchange. drawing <= char || score is fine i think.
+        CHARSEL0: begin
+            // pix <= char_pix | char1_pix;
+            // if (seltext_pix) // use score_pix to specify 4 bit color
+            //     score_pix <= 4'b1000; else score_pix <= 4'b0000;
+            pix <= seltext_pix ? 4'b1000 : ((char_pix | char1_pix) ? (char_pix | char1_pix) : 
+                ( (hc >= varchar_x-4) && (hc < varchar_x + CHAR_WIDTH*(2**CHAR_SCALE)+4) && (vc >= varchar_y-4) && (vc < varchar_y+CHAR_HEIGHT*(2**CHAR_SCALE)+4)) 
+                ? 4'b1001 : 0);
+            // if( (hc >= varchar_x-4) &&  )
+            //     pix <= box color..;
+            // drawing <= char_drawing || char1_drawing || seltext_drawing;
+        end
+        CHARSEL1: begin
+            pix <= seltext_pix ? 4'b1000 : ((char_pix | char1_pix) ? (char_pix | char1_pix) : 
+                ( (hc >= varchar_x1-4) && (hc < varchar_x1 + CHAR_WIDTH*(2**CHAR_SCALE)+4) && (vc >= varchar_y-4) && (vc < varchar_y+CHAR_HEIGHT*(2**CHAR_SCALE)+4)) 
+                ? 4'b1001 : 0);
+        end
         IDLE, RUN1, RUN2, JUMP1, JUMP2, DUCK1, DUCK2: begin
-            // this could cause all pix to be one clock delayed..
             if ((state == DUCK1 || state == DUCK2)) begin 
                 if ((hc >= CHARX) && (hc < CHARX+CHAR_LONG_WIDTH*(2**CHAR_SCALE)) && (vc >= varchar_y) && (vc < varchar_y + CHAR_HEIGHT*(2**CHAR_SCALE))) // CHECK IF HC VC IN CHAR RANGE TO AVOID GLITCH
-                    pix <= char_pix;
+                begin
+                    if(char0or1 == 0)
+                        pix <= char_pix;
+                    else
+                        pix <= char1_pix;
+                    // pix <= char_pix;
+                end
                 else 
                     pix <= 4'b0000;
             end
             else begin
                 if ((hc >= CHARX) && (hc < CHARX+CHAR_WIDTH*(2**CHAR_SCALE)) && (vc >= varchar_y) && (vc < varchar_y + CHAR_HEIGHT*(2**CHAR_SCALE))) // CHECK IF HC VC IN CHAR RANGE TO AVOID GLITCH
-                    pix <= char_pix;
+                begin
+                    if(char0or1 == 0)
+                        pix <= char_pix;
+                    else
+                        pix <= char1_pix;
+                end
                 else 
                     pix <= 4'b0000;
             end
@@ -675,7 +744,10 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
                 score_pix <= 4'b1000;
             else
                 score_pix <= 4'b0000;
-            drawing <= char_drawing || score1_pix || score10_pix || score100_pix || score1000_pix; // all character drawing can go here bc only one active at a time.
+            // if (char0or1 == 0)
+            //     drawing <= char_drawing || score1_pix || score10_pix || score100_pix || score1000_pix; // all character drawing can go here bc only one active at a time.
+            // else 
+            //     drawing <= char1_drawing || score1_pix || score10_pix || score100_pix || score1000_pix; // all character drawing can go here bc only one active at a time.
 
         end
     endcase
@@ -683,12 +755,13 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
 	// assign drawing = my_drawing || duck_drawing;
 	
 
-    // later, char_x will be constant for all 4 states. and char_y will be variable, in jump only
     localparam CHARX = 250;
-    localparam CHARY = 175;
-    reg [8:0] varchar_y;
+    localparam CHARY = 250;
+    reg [8:0] varchar_y; // for jump
+    reg [8:0] varchar_x; // for char sel, idle sprite only
+    reg [8:0] varchar_x1; // for second sprite
 
-    // JUMP1
+    
     localparam CHAR_WIDTH  =  30;  // bitmap width in pixels
     localparam CHAR_LONG_WIDTH  =  43; // for duck duck
     localparam CHAR_HEIGHT =  32;  // bitmap height in pixels
@@ -700,14 +773,30 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
     localparam DUCK_DUCK1_FILE   = "duck1.mem";  // bitmap file
     localparam DUCK_DUCK2_FILE   = "duck2.mem";  // bitmap file
     localparam DUCK_IDLE_FILE = "idle.mem";
+    localparam CAT_IDLE_FILE = "idle1.mem";
+    localparam CAT_JUMP1_FILE   = "jump2cat.mem";  // bitmap file
+    localparam CAT_JUMP2_FILE   = "jump1cat.mem";  // bitmap file
+    localparam CAT_RUN1_FILE    = "run1cat.mem";  // bitmap file
+    localparam CAT_RUN2_FILE    = "run2cat.mem";  // bitmap file
+    localparam CAT_DUCK1_FILE   = "duck1cat.mem";  // bitmap file
+    localparam CAT_DUCK2_FILE   = "duck2cat.mem";  // bitmap file
     // localparam SPR_DRAWW  = SPR_WIDTH * 2**SPR_SCALE;
 
+    // CHAR 0
     reg idle_en, run1_en, run2_en, jump1_en, jump2_en, duck1_en, duck2_en; 
 	wire [CIDXW-1:0] char_pix, idle_pix, run1_pix, run2_pix, jump1_pix, jump2_pix, duck1_pix, duck2_pix;
     assign char_pix = idle_pix | run1_pix | run2_pix | jump1_pix | jump2_pix | duck1_pix | duck2_pix;
 	wire char_drawing, idle_drawing, run1_drawing, run2_drawing, jump1_drawing, jump2_drawing, duck1_drawing, duck2_drawing;
     assign char_drawing = idle_drawing || run1_drawing || run2_drawing || jump1_drawing || jump2_drawing || duck1_drawing || duck2_drawing;
 
+    // CHAR 1
+    reg idle1_en;  
+	wire [CIDXW-1:0] char1_pix, idle1_pix, run1_1pix, run2_1pix, jump1_1pix, jump2_1pix, duck1_1pix, duck2_1pix;
+    assign char1_pix = idle1_pix | run1_1pix | run2_1pix | jump1_1pix | jump2_1pix | duck1_1pix | duck2_1pix;
+	// wire char1_drawing, idle1_drawing; // run1_drawing, run2_drawing, jump1_drawing, jump2_drawing, duck1_drawing, duck2_drawing;
+    // assign char_drawing = idle_drawing || run1_drawing || run2_drawing || jump1_drawing || jump2_drawing || duck1_drawing || duck2_drawing;
+
+    // DUCKIDLE
     sprite #(
         .SPR_FILE(DUCK_IDLE_FILE),
         .SPR_WIDTH(CHAR_WIDTH),
@@ -719,13 +808,134 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
         .line(line),
         .sx(hc),
         .sy(vc),
-        .sprx(CHARX),
+        .sprx(varchar_x),
         .spry(CHARY),
         .pix(idle_pix),
         .drawing(idle_drawing),
         .en(idle_en)
     );
+    // CATIDLE
+    sprite #(
+        .SPR_FILE(CAT_IDLE_FILE),
+        .SPR_WIDTH(CHAR_WIDTH),
+        .SPR_HEIGHT(CHAR_HEIGHT),
+		.SPR_SCALE(CHAR_SCALE)
+    ) catidle (
+        .clk(clk25),
+        .rst(Reset),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(varchar_x1),
+        .spry(CHARY),
+        .pix(idle1_pix),
+        .en(idle1_en)
+    );
 
+// CAT CONTROLS V
+    sprite #(
+        .SPR_FILE(CAT_JUMP1_FILE),
+        .SPR_WIDTH(CHAR_WIDTH),
+        .SPR_HEIGHT(CHAR_HEIGHT),
+		.SPR_SCALE(CHAR_SCALE)
+    ) catjump1 (
+        .clk(clk25),
+        .rst(Reset),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(CHARX),
+        .spry(varchar_y),
+        .pix(jump1_1pix),
+        .en(jump1_en)
+    );
+
+    sprite #(
+        .SPR_FILE(CAT_JUMP2_FILE),
+        .SPR_WIDTH(CHAR_WIDTH),
+        .SPR_HEIGHT(CHAR_HEIGHT),
+		.SPR_SCALE(CHAR_SCALE)
+    ) catjump2 (
+        .clk(clk25),
+        .rst(Reset),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(CHARX),
+        .spry(varchar_y),
+        .pix(jump2_1pix),
+        .en(jump2_en)
+    );
+
+    sprite #(
+        .SPR_FILE(CAT_RUN1_FILE),
+        .SPR_WIDTH(CHAR_WIDTH),
+        .SPR_HEIGHT(CHAR_HEIGHT),
+		.SPR_SCALE(CHAR_SCALE)
+    ) catrun1 (
+        .clk(clk25),
+        .rst(Reset),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(CHARX),
+        .spry(CHARY),
+        .pix(run1_1pix),
+        .en(run1_en)
+    );
+
+    sprite #(
+        .SPR_FILE(CAT_RUN2_FILE),
+        .SPR_WIDTH(CHAR_WIDTH),
+        .SPR_HEIGHT(CHAR_HEIGHT),
+		.SPR_SCALE(CHAR_SCALE)
+    ) catrun2 (
+        .clk(clk25),
+        .rst(Reset),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(CHARX),
+        .spry(CHARY),
+        .pix(run2_1pix),
+        .en(run2_en)
+    );
+
+    sprite #(
+        .SPR_FILE(CAT_DUCK1_FILE),
+        .SPR_WIDTH(CHAR_LONG_WIDTH),
+        .SPR_HEIGHT(CHAR_HEIGHT),
+		.SPR_SCALE(CHAR_SCALE)
+    ) catduck1 (
+        .clk(clk25),
+        .rst(Reset),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(CHARX),
+        .spry(CHARY),
+        .pix(duck1_1pix),
+        .en(duck1_en)
+    );
+
+    sprite #(
+        .SPR_FILE(CAT_DUCK2_FILE),
+        .SPR_WIDTH(CHAR_LONG_WIDTH),
+        .SPR_HEIGHT(CHAR_HEIGHT),
+		.SPR_SCALE(CHAR_SCALE)
+    ) catduck2 (
+        .clk(clk25),
+        .rst(Reset),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(CHARX),
+        .spry(CHARY),
+        .pix(duck2_1pix),
+        .en(duck2_en)
+    );
+
+// DUCK CONTROLS V
     sprite #(
         .SPR_FILE(DUCK_JUMP1_FILE),
         .SPR_WIDTH(CHAR_WIDTH),
@@ -867,4 +1077,31 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
         .drawing(name_drawing),
         .en(name_en)
     );
+
+   // SELTEXT SELECTION TEXT CHARACTER SELECT
+    wire signed [CORDW-1:0] seltext_x, seltext_y;
+    assign seltext_x = 335, seltext_y = 160; 
+    reg seltext_en;
+	wire [CIDXW-1:0] seltext_pix;
+	wire seltext_drawing;
+
+    sprite #(
+        .SPR_FILE("seltext.mem"),
+        .SPR_WIDTH(52),
+        .SPR_HEIGHT(5),
+		.SPR_SCALE(2)
+    ) seltext (
+        .clk(clk25),
+        .rst(Reset),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(seltext_x),
+        .spry(seltext_y),
+        .pix(seltext_pix),
+        .drawing(seltext_drawing),
+        .en(seltext_en)
+    );
+
+
 endmodule

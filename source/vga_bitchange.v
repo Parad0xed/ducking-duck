@@ -24,6 +24,7 @@ module vga_bitchange#(parameter CIDXW=1)(
 	parameter B3 = 12'b010000110111;
 	parameter TEXTCLR = 12'b000000000000;
 	parameter BGCLR = 12'b1110_1110_1110;
+	parameter HIGHLIGHT_BOXCLR = 12'b110111001111; // 12'b1100_1111_1001;
 
 	wire greenMiddleSquare;
 	reg reset;
@@ -39,26 +40,51 @@ module vga_bitchange#(parameter CIDXW=1)(
 	
 	always@ (*) // BIT CHANGE
 	begin
-    	if (~bright)
+		// TEST WITHOUT CHECKING DRAWING
+		if (~bright)
 			rgb = BLACK; // force black if not bright
-		else if(drawing && (pix == 3'b001)) // FORCE BG
+		else if((pix == 4'b0001)) // FORCE BG
 			rgb = BGCLR;
-		else if(drawing && (pix == 3'b010))
+		else if((pix == 4'b0010))
 			rgb = O;	
-		else if(drawing && (pix == 3'b011))
+		else if((pix == 4'b0011))
 			rgb = P2;
-		else if(drawing && (pix == 3'b100))
+		else if((pix == 4'b0100))
 			rgb = P3;
-		else if(drawing && (pix == 3'b101))
+		else if((pix == 4'b0101))
 			rgb = B1;
-		else if(drawing && (pix == 3'b110))
+		else if((pix == 4'b0110))
 			rgb = B2;
-		else if(drawing && (pix == 3'b111))
+		else if((pix == 4'b0111))
 			rgb = B3;
-		else if(drawing && (pix == 4'b1000))
+		else if((pix == 4'b1000))
 			rgb = TEXTCLR;
+		else if((pix == 4'b1001))
+			rgb = HIGHLIGHT_BOXCLR;
 		else // DEFAULT BG
 			rgb = BGCLR; 
+    	// if (~bright)
+		// 	rgb = BLACK; // force black if not bright
+		// else if(drawing && (pix == 4'b0001)) // FORCE BG
+		// 	rgb = BGCLR;
+		// else if(drawing && (pix == 4'b0010))
+		// 	rgb = O;	
+		// else if(drawing && (pix == 4'b0011))
+		// 	rgb = P2;
+		// else if(drawing && (pix == 4'b0100))
+		// 	rgb = P3;
+		// else if(drawing && (pix == 4'b0101))
+		// 	rgb = B1;
+		// else if(drawing && (pix == 4'b0110))
+		// 	rgb = B2;
+		// else if(drawing && (pix == 4'b0111))
+		// 	rgb = B3;
+		// else if(drawing && (pix == 4'b1000))
+		// 	rgb = TEXTCLR;
+		// else if(drawing && (pix == 4'b1001))
+		// 	rgb = HIGHLIGHT_BOXCLR;
+		// else // DEFAULT BG
+		// 	rgb = BGCLR; 
 	end
 	
 	always@ (posedge clk)

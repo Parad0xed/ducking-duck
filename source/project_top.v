@@ -6,6 +6,7 @@ module project_top(
 	input BtnU,
 	input BtnD,
 	input BtnR,
+	input BtnL, 
 	
 	//VGA signal
 	output hSync, vSync,
@@ -46,7 +47,7 @@ module project_top(
 		DIV_CLK <= DIV_CLK + 1'b1;
     end
 
-	wire BtnR_Pulse, BtnU_Pulse, BtnD_Signal;
+	wire BtnR_Pulse, BtnL_Pulse, BtnU_Pulse, BtnD_Signal;
 	wire line;
 	wire drawing;  // drawing at (sx,sy)
 	wire [CIDXW:0] pix, char_pix, score_pix;
@@ -58,19 +59,23 @@ module project_top(
 	wire clk25;
 	display_controller dc(.clk(ClkPort), .hSync(hSync), .vSync(vSync), .bright(bright), .hCount(hc), .vCount(vc), .line(line), .clk25(clk25));
 	vga_bitchange #(.CIDXW(CIDXW)) vbc (.clk(ClkPort), .bright(bright), .button(BtnU), .drawing(drawing) ,.pix(pix), .hCount(hc), .vCount(vc), .rgb(rgb), .score(score));
-	core #(.CIDXW(CIDXW)) a (.Clk(ClkPort), .BtnR_Pulse(BtnR_Pulse), .BtnU_Pulse(BtnU_Pulse), .BtnD(BtnD_Signal), .Reset(Reset), .clk25(clk25), .line(line), .hc(hc), .vc(vc), .pix(char_pix), .score_pix(score_pix), .drawing(drawing));
+	core #(.CIDXW(CIDXW)) a (.Clk(ClkPort), .BtnR_Pulse(BtnR_Pulse), .BtnL_Pulse(BtnL_Pulse), .BtnU_Pulse(BtnU_Pulse), .BtnD(BtnD_Signal), .Reset(Reset), .clk25(clk25), .line(line), .hc(hc), .vc(vc), .pix(char_pix), .score_pix(score_pix), .drawing(drawing));
 	// state output ommitted ^
 
 	localparam CIDXW=3; // maybe not constant if need space	
 
 	// why doesn't N_dc need to be listed at module declarationa as a parameter ???
-	debouncer #(.N_dc(28)) debounce1
+	debouncer #(.N_dc(15)) debounce1
         (.CLK(ClkPort), .RESET(Reset), .PB(BtnR), .DPB( ), 
 		.SCEN(BtnR_Pulse), .MCEN( ), .CCEN( ));
 
 	debouncer #(.N_dc(15)) debounce2
         (.CLK(ClkPort), .RESET(Reset), .PB(BtnU), .DPB( ), 
 		.SCEN(BtnU_Pulse), .MCEN( ), .CCEN( ));
+
+	debouncer #(.N_dc(15)) debounce4
+        (.CLK(ClkPort), .RESET(Reset), .PB(BtnL), .DPB( ), 
+		.SCEN(BtnL_Pulse), .MCEN( ), .CCEN( ));
 		
 	debouncer #(.N_dc(10)) debounce3
         (.CLK(ClkPort), .RESET(Reset), .PB(BtnD), .DPB( ), 
