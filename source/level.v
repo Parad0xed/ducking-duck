@@ -46,7 +46,7 @@ module level #(
             end
             else level_pix <= 4'b0000;
 
-            BGCounter <= BGCounter - 1;
+            BGCounter <= BGCounter + 1;
             if(BGCounter == 4'hFFFFF) BGMod <= BGMod - 1;
         end
         else level_pix <= 4'b0000;
