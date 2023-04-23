@@ -29,6 +29,7 @@ module project_top(
 	assign {Ca, Cb, Cc, Cd, Ce, Cf, Cg} = ssdOut[6 : 0];
     assign {An7, An6, An5, An4, An3, An2, An1, An0} = {4'b1111, anode};
 
+	wire [3:0] state;
 	
 	assign vgaR = rgb[11 : 8];
 	assign vgaG = rgb[7  : 4];
@@ -50,7 +51,7 @@ module project_top(
 	wire BtnR_Pulse, BtnL_Pulse, BtnU_Pulse, BtnD_Signal;
 	wire line;
 	wire drawing;  // drawing at (sx,sy)
-	wire [CIDXW:0] pix, char_pix, score_pix;
+	wire [CIDXW:0] pix, char_pix, score_pix, level_pix;
 	wire bright;
 	wire[9:0] hc, vc;
 	wire [6:0] ssdOut;
@@ -59,8 +60,10 @@ module project_top(
 	wire clk25;
 	display_controller dc(.clk(ClkPort), .hSync(hSync), .vSync(vSync), .bright(bright), .hCount(hc), .vCount(vc), .line(line), .clk25(clk25));
 	vga_bitchange #(.CIDXW(CIDXW)) vbc (.clk(ClkPort), .bright(bright), .button(BtnU), .drawing(drawing) ,.pix(pix), .hCount(hc), .vCount(vc), .rgb(rgb), .score(score));
-	core #(.CIDXW(CIDXW)) a (.Clk(ClkPort), .BtnR_Pulse(BtnR_Pulse), .BtnL_Pulse(BtnL_Pulse), .BtnU_Pulse(BtnU_Pulse), .BtnD(BtnD_Signal), .Reset(Reset), .clk25(clk25), .line(line), .hc(hc), .vc(vc), .pix(char_pix), .score_pix(score_pix), .drawing(drawing));
-	// state output ommitted ^
+	core #(.CIDXW(CIDXW)) a (.Clk(ClkPort), .BtnR_Pulse(BtnR_Pulse), .BtnL_Pulse(BtnL_Pulse), .BtnU_Pulse(BtnU_Pulse), .BtnD(BtnD_Signal), .Reset(Reset), .clk25(clk25), .line(line), .hc(hc), .vc(vc), .pix(char_pix), .score_pix(score_pix), .drawing(drawing), .state(state));
+	level #() levelGen(.Clk(ClkPort), .DIV_CLK(DIV_CLK), .Reset(Reset), .line(line), .state(state), .hc(hc), .vc(vc), .level_pix(level_pix));
+
+	// state output ommitted ^ (Not Anymore)
 
 	localparam CIDXW=3; // maybe not constant if need space	
 
@@ -82,7 +85,7 @@ module project_top(
 		.SCEN(), .MCEN( ), .CCEN(BtnD_Signal ));
 
 	
-	assign pix = char_pix | score_pix; // for now. add background check when that part is done
+	assign pix = (char_pix ? char_pix:level_pix) | score_pix; // for now. add background check when that part is done
 	
 	
 	
