@@ -16,7 +16,7 @@ module level #(
     reg generateNextObstacle; // Flag to indicate whether the next obstacle object should be generated
     reg [1:0] nextObstacleLocation; // Register to determine next obstacle position. (0 = no obstacle, 1 = low, 2 = mid, 3 = high)
     reg [2:0] BGMod;
-    reg [17:0] BGCounter;
+    reg [19:0] BGCounter;
 
     localparam 	
 	    TITLE = 4'b0000, TITLE1 = 4'b0001, TITLE2 = 4'b0010, TITLE3 = 4'b0011, TITLE4 = 4'b0100, 
@@ -46,8 +46,8 @@ module level #(
             end
             else level_pix <= 4'b0000;
 
-            BGCounter <= BGCounter + 1;
-            if(BGCounter == 4'hFFFF8) BGMod <= BGMod - 1;
+            BGCounter <= BGCounter - 1;
+            if(BGCounter == 4'hFFFFF) BGMod <= BGMod - 1;
         end
         else level_pix <= 4'b0000;
     end

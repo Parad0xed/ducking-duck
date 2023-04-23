@@ -13,7 +13,7 @@ reg [3:0] count, count_next; //to keep track of the shifts
 
 always @ (posedge clock, posedge reset)
 begin
-    if (reset)
+    if (reset) //Initialize LSFR random generation
     begin
         random <= 13'hF; //An LFSR cannot have an all 0 state, thus reset to FF
         random_next <= 13'hF;
