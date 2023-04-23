@@ -25,6 +25,7 @@ module vga_bitchange#(parameter CIDXW=1)(
 	parameter TEXTCLR = 12'b000000000000;
 	parameter BGCLR = 12'b1110_1110_1110;
 	parameter HIGHLIGHT_BOXCLR = 12'b110111001111; // 12'b1100_1111_1001;
+	parameter GREY = 12'b1000_1000_1000;
 
 	wire greenMiddleSquare;
 	reg reset;
@@ -61,6 +62,8 @@ module vga_bitchange#(parameter CIDXW=1)(
 			rgb = TEXTCLR;
 		else if((pix == 4'b1001))
 			rgb = HIGHLIGHT_BOXCLR;
+		else if((pix == 4'b1010))
+			rgb = GREY;
 		else // DEFAULT BG
 			rgb = BGCLR; 
     	// if (~bright)

@@ -1,10 +1,10 @@
 
-module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, BtnL_Pulse, BtnU_Pulse, BtnD, 
+module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, BtnL_Pulse, BtnU_Pulse, BtnD_Pulse, BtnD, 
         clk25, line, hc, vc, state, pix, score_pix, drawing);
 
 
 	/*  INPUTS */
-	input	Clk, BtnR_Pulse, BtnL_Pulse, BtnU_Pulse, BtnD, Reset; //, Start, Ack;
+	input	Clk, BtnR_Pulse, BtnL_Pulse, BtnU_Pulse, BtnD_Pulse, BtnD, Reset; //, Start, Ack;
     input clk25, line;
     input [CORDW-1:0] hc, vc;
     
@@ -13,15 +13,19 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
     output reg drawing;
 	// store current state
 	output reg [3:0] state;	
+
+    reg FAIL_signal; // change to input wire later
+
     reg [29:0] i_count;	// 2^30 = 1 073 741 824
     reg [21:0] x_count; // to deal with modulus operation. 2^22 = 4194304
     reg [1:0] jump_count; // to time character jump
-    reg [10:0] smalli, jump_time; // for varchar_y calculations
+    reg [10:0] jump_time; // for varchar_y calculations
     reg [19:0] timesquare;
     reg [9:0] score; // for now, +1 per second, displayed in binary, caps at 1023
                      // consider displaying in decimal?
                      // in decimal : 
     reg [3:0] score_th, score_hun, score_ten, score_one; // increment and cap at 9999
+    reg [3:0] hiscore_th, hiscore_hun, hiscore_ten, hiscore_one; // HIGH SCORE TRACKER
     reg [29:0] s_count; // for counting score
     reg score_en, score_count_en; // score_en for display, count_en to count score
     reg char0or1;
@@ -29,7 +33,7 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
 	localparam 	
 	TITLE = 4'b0000, TITLE1 = 4'b0001, TITLE2 = 4'b0010, TITLE3 = 4'b0011, TITLE4 = 4'b0100, 
         RUN1 = 4'b0101, RUN2 = 4'b0110, JUMP1 = 4'b0111, JUMP2 = 4'b1000, DUCK1 = 4'b1001, DUCK2 = 4'b1010, IDLE = 4'b1011, 
-        CHARSEL0 = 4'b1100, CHARSEL1 = 4'b1101, UNK = 4'bXXXX;
+        CHARSEL0 = 4'b1100, CHARSEL1 = 4'b1101, FAIL1 = 4'b1110, FAIL2 = 4'b1111, UNK = 4'bXXXX;
 	
     // sprite parameters
     localparam DUCK_WIDTH  =  64;  // bitmap width in pixels
@@ -109,8 +113,59 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
             score_en <= 0;
                     		
 		  end
+        else if (score_one == 0 && score_ten == 1 && score_hun == 0 && FAIL_signal != 1) begin // SCORE == 10
+            FAIL_signal <= 1;
+            score_count_en <= 0;
+            state <= FAIL1;
+            if ({score_th, score_hun, score_ten, score_one} > {hiscore_th, hiscore_hun, hiscore_ten, hiscore_one})begin 
+                hiscore_th <= score_th;
+                hiscore_hun <= score_hun;
+                hiscore_ten <= score_ten;
+                hiscore_one <= score_one;
+            end
+        end
 		else				
             case(state)	// TITLE SCREEN SEQUENCE
+                FAIL1: begin
+                    failtext_en <= 1;
+                    if(BtnD_Pulse) state <= FAIL2; 
+                    if(BtnR_Pulse) begin
+                        state <= IDLE;
+                        i_count <= 0;
+                        jump_count <= 0;
+                        jump_time <= 25;
+                        timesquare <= 902500;
+                        x_count <= 0;
+                        idle_en <= 0; idle1_en <= 0; run1_en <= 0; run2_en <= 0; jump1_en <= 0; jump2_en <= 0; duck1_en <= 0; duck2_en <= 0;
+                        varchar_y <= CHARY;
+                        varchar_x <= CHARX; varchar_x1 <= CHARX;
+                        // char0or1 <= 0;
+                        FAIL_signal <= 0;
+                        score_count_en <= 0;
+                        score_en <= 0;
+                        failtext_en <= 0;
+                    end
+                end
+                FAIL2: begin
+                    failtext_en <= 1;
+                    if(BtnU_Pulse) state <= FAIL1; 
+                    if(BtnR_Pulse) begin
+                        state <= CHARSEL0;
+                        i_count <= 0;
+                        jump_count <= 0;
+                        jump_time <= 25;
+                        timesquare <= 902500;
+                        x_count <= 0;
+                        idle_en <= 0; idle1_en <= 0; run1_en <= 0; run2_en <= 0; jump1_en <= 0; jump2_en <= 0; duck1_en <= 0; duck2_en <= 0;
+                        varchar_y <= CHARY;
+                        varchar_x <= CHARX; varchar_x1 <= CHARX;
+                        // char0or1 <= 0;
+                        FAIL_signal <= 0;
+                        score_count_en <= 0;
+                        score_en <= 0;
+                        failtext_en <= 0;
+                    end
+                end
                 TITLE: begin
                     if (BtnR_Pulse) state <= TITLE1;
                     duck_x <= 250;
@@ -125,10 +180,12 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
                     percent_shown <= 3;
                     duck_en <= 1;
                     title_en <= 1;
-                    idle_en <= 0; run1_en <= 0; run2_en <= 0; jump1_en <= 0; jump2_en <= 0; duck1_en <= 0; duck2_en <= 0;
+                    idle_en <= 0; idle1_en <= 0; run1_en <= 0; run2_en <= 0; jump1_en <= 0; jump2_en <= 0; duck1_en <= 0; duck2_en <= 0;
                     varchar_y <= CHARY;
                     varchar_x <= CHARX; varchar_x1 <= CHARX;
                     char0or1 <= 0;
+                    FAIL_signal <= 0;
+                    hiscore_one <= 0; hiscore_ten <= 0; hiscore_hun <= 0; hiscore_th <= 0;
                     // score vars: // need to do this in same block. figure this out on game lose + play again
                     // score_count_en <= 0;
                     // score_en <= 0;
@@ -266,9 +323,7 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
                     x_count <= x_count+1;
                     if(x_count == 2500000) begin 
                         x_count <= 0;
-                        // parabolic height with vertex (500, -100)
-                        // smalli = i_count/100000;
-                        // jump_time = smalli + jump_count*250; 
+                        // Split division to meet timing constraints 
                         jump_time <= jump_time + 25;
                         timesquare <= (((jump_time+25)-500)**2) << 2;
                         varchar_y <= CHARY-100+(timesquare)/10000;
@@ -284,9 +339,7 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
                     x_count <= x_count+1;
                     if(x_count == 2500000) begin 
                         x_count <= 0;
-                        // parabolic height with vertex (500, -100) 
-                        // smalli = i_count/100000;
-                        // jump_time = smalli + jump_count*250; 
+                        // Split division to meet timing constraints 
                         jump_time <= jump_time + 25;
                         timesquare <= (((jump_time+25)-500)**2) << 2;
                         varchar_y <= CHARY-100+(timesquare)/10000;
@@ -353,9 +406,15 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
             score_one <= 0; score_ten <= 0; score_hun <= 0; score_th <= 0;
         end
         else begin
+
+            // temporary condition for artificial fail signal
+            if((state == FAIL1 && BtnR_Pulse) || (state == FAIL2 && BtnR_Pulse)) begin
+                score_one <= 0; score_ten <= 0; score_hun <= 0; score_th <= 0; s_count <= 0;
+            end
+
             if(score_count_en) begin // TO INCREMENT SCORE (WITH 4 DECIMAL DIGITS FOR DISPLAY)
                 s_count <= s_count+1;
-                if(s_count == 100000000) begin // 1 SECOND
+                if(s_count == 50000000) begin // 1 SECOND
                     s_count <= 0; 
                     if(score_one != 9) begin
                         score_one <= score_one+1;
@@ -383,9 +442,7 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
                         end
                     end
                 end 
-//                if(score_one == 0 && score_ten == 0 && score_hun != 0) begin // MULTIPLES OF 100 
-//                    dive_mode <= dive_mode^1;
-//                end
+               
             end
         end
     end
@@ -686,6 +743,298 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
         end
     end
 
+    // HIGH SCORE LOGIC
+    reg hiscore1_pix, hiscore10_pix, hiscore100_pix, hiscore1000_pix;
+    // reg hiscore1_drawing, hiscore10_drawing, hiscore100_drawing, hiscore1000_drawing;
+    localparam HISCORE1X = 555;   // upper left corner, each digit is 
+    localparam HISCORE10X = HISCORE1X-(SCORE_DIGIT_WIDTH+SCORE_SPACE_WIDTH);
+    localparam HISCORE100X = HISCORE1X-2*(SCORE_DIGIT_WIDTH+SCORE_SPACE_WIDTH);
+    localparam HISCORE1000X = HISCORE1X-3*(SCORE_DIGIT_WIDTH+SCORE_SPACE_WIDTH);
+    always @ (posedge Clk) begin
+        if(score_en) begin
+            case (hiscore_one)
+                0:  if(
+                        (((hc >= HISCORE1X) && (hc < (HISCORE1X+SCORE_LINE_WIDTH))) && ((vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE1X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1X+4*SCORE_LINE_WIDTH)) && ((vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE1X+5*SCORE_LINE_WIDTH) && (hc < (HISCORE1X+6*SCORE_LINE_WIDTH))) && ((vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE1X+5*SCORE_LINE_WIDTH) && (hc < (HISCORE1X+6*SCORE_LINE_WIDTH))) && ((vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE1X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1X+4*SCORE_LINE_WIDTH)) && ((vc >= SCOREY+8*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE1X) && (hc < (HISCORE1X+SCORE_LINE_WIDTH))) && ((vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))) 
+                    ) hiscore1_pix <= 1; else hiscore1_pix <= 0;
+                1: if(
+                        ((hc >= HISCORE1X+5*SCORE_LINE_WIDTH) && (hc < HISCORE1X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1X+5*SCORE_LINE_WIDTH) && (hc < HISCORE1X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))                         
+                    ) hiscore1_pix <= 1; else hiscore1_pix <= 0;
+                2: if(
+                        ((hc >= HISCORE1X) && (hc < HISCORE1X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1X+5*SCORE_LINE_WIDTH) && (hc < HISCORE1X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1X) && (hc < HISCORE1X+SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH)) ||                     
+                        ((hc >= HISCORE1X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY+8*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))                     
+                    ) hiscore1_pix <= 1; else hiscore1_pix <= 0;
+                3: if(
+                        ((hc >= HISCORE1X) && (hc < HISCORE1X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1X+5*SCORE_LINE_WIDTH) && (hc < HISCORE1X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1X+5*SCORE_LINE_WIDTH) && (hc < HISCORE1X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH)) ||                     
+                        ((hc >= HISCORE1X) && (hc < HISCORE1X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+8*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))                     
+                    ) hiscore1_pix <= 1; else hiscore1_pix <= 0;
+                4: if(
+                        ((hc >= HISCORE1X) && (hc < HISCORE1X+SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1X+5*SCORE_LINE_WIDTH) && (hc < HISCORE1X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1X+5*SCORE_LINE_WIDTH) && (hc < HISCORE1X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))                   
+                    ) hiscore1_pix <= 1; else hiscore1_pix <= 0;
+                5: if(
+                        ((hc >= HISCORE1X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1X) && (hc < HISCORE1X+SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1X+5*SCORE_LINE_WIDTH) && (hc < HISCORE1X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH)) ||                     
+                        ((hc >= HISCORE1X) && (hc < HISCORE1X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+8*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))                     
+                    ) hiscore1_pix <= 1; else hiscore1_pix <= 0;
+                6: if(
+                        ((hc >= HISCORE1X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1X) && (hc < HISCORE1X+SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1X+5*SCORE_LINE_WIDTH) && (hc < HISCORE1X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH)) ||                     
+                        ((hc >= HISCORE1X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+8*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH)) ||
+                        ((hc >= HISCORE1X) && (hc < HISCORE1X+SCORE_LINE_WIDTH) && (vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))                                    
+                    ) hiscore1_pix <= 1; else hiscore1_pix <= 0;
+                7: if(
+                        ((hc >= HISCORE1X) && (hc < HISCORE1X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1X+5*SCORE_LINE_WIDTH) && (hc < HISCORE1X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1X+5*SCORE_LINE_WIDTH) && (hc < HISCORE1X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))                         
+                    ) hiscore1_pix <= 1; else hiscore1_pix <= 0;
+                8: if(
+                        ((hc >= HISCORE1X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        (((hc >= HISCORE1X) && (hc < (HISCORE1X+SCORE_LINE_WIDTH))) && ((vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE1X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1X+4*SCORE_LINE_WIDTH)) && ((vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE1X+5*SCORE_LINE_WIDTH) && (hc < (HISCORE1X+6*SCORE_LINE_WIDTH))) && ((vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE1X+5*SCORE_LINE_WIDTH) && (hc < (HISCORE1X+6*SCORE_LINE_WIDTH))) && ((vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE1X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1X+4*SCORE_LINE_WIDTH)) && ((vc >= SCOREY+8*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE1X) && (hc < (HISCORE1X+SCORE_LINE_WIDTH))) && ((vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))) 
+                    ) hiscore1_pix <= 1; else hiscore1_pix <= 0;
+                9: if(
+                        ((hc >= HISCORE1X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        (((hc >= HISCORE1X) && (hc < (HISCORE1X+SCORE_LINE_WIDTH))) && ((vc >= SCOREY) && (vc < SCOREY+5*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE1X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1X+4*SCORE_LINE_WIDTH)) && ((vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE1X+5*SCORE_LINE_WIDTH) && (hc < (HISCORE1X+6*SCORE_LINE_WIDTH))) && ((vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE1X+5*SCORE_LINE_WIDTH) && (hc < (HISCORE1X+6*SCORE_LINE_WIDTH))) && ((vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))) 
+                    ) hiscore1_pix <= 1; else hiscore1_pix <= 0;
+            endcase
+            case (hiscore_ten)
+                0:  if(
+                        (((hc >= HISCORE10X) && (hc < (HISCORE10X+SCORE_LINE_WIDTH))) && ((vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE10X+2*SCORE_LINE_WIDTH) && (hc < HISCORE10X+4*SCORE_LINE_WIDTH)) && ((vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE10X+5*SCORE_LINE_WIDTH) && (hc < (HISCORE10X+6*SCORE_LINE_WIDTH))) && ((vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE10X+5*SCORE_LINE_WIDTH) && (hc < (HISCORE10X+6*SCORE_LINE_WIDTH))) && ((vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE10X+2*SCORE_LINE_WIDTH) && (hc < HISCORE10X+4*SCORE_LINE_WIDTH)) && ((vc >= SCOREY+8*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE10X) && (hc < (HISCORE10X+SCORE_LINE_WIDTH))) && ((vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))) 
+                    ) hiscore10_pix <= 1; else hiscore10_pix <= 0;
+                1: if(
+                        ((hc >= HISCORE10X+5*SCORE_LINE_WIDTH) && (hc < HISCORE10X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE10X+5*SCORE_LINE_WIDTH) && (hc < HISCORE10X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))                         
+                    ) hiscore10_pix <= 1; else hiscore10_pix <= 0;
+                2: if(
+                        ((hc >= HISCORE10X) && (hc < HISCORE10X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE10X+5*SCORE_LINE_WIDTH) && (hc < HISCORE10X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE10X+2*SCORE_LINE_WIDTH) && (hc < HISCORE10X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE10X) && (hc < HISCORE10X+SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH)) ||                     
+                        ((hc >= HISCORE10X+2*SCORE_LINE_WIDTH) && (hc < HISCORE10X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY+8*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))                     
+                    ) hiscore10_pix <= 1; else hiscore10_pix <= 0;
+                3: if(
+                        ((hc >= HISCORE10X) && (hc < HISCORE10X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE10X+5*SCORE_LINE_WIDTH) && (hc < HISCORE10X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE10X+2*SCORE_LINE_WIDTH) && (hc < HISCORE10X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE10X+5*SCORE_LINE_WIDTH) && (hc < HISCORE10X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH)) ||                     
+                        ((hc >= HISCORE10X) && (hc < HISCORE10X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+8*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))                     
+                    ) hiscore10_pix <= 1; else hiscore10_pix <= 0;
+                4: if(
+                        ((hc >= HISCORE10X) && (hc < HISCORE10X+SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE10X+5*SCORE_LINE_WIDTH) && (hc < HISCORE10X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE10X+2*SCORE_LINE_WIDTH) && (hc < HISCORE10X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE10X+5*SCORE_LINE_WIDTH) && (hc < HISCORE10X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))                   
+                    ) hiscore10_pix <= 1; else hiscore10_pix <= 0;
+                5: if(
+                        ((hc >= HISCORE10X+2*SCORE_LINE_WIDTH) && (hc < HISCORE10X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE10X) && (hc < HISCORE10X+SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE10X+2*SCORE_LINE_WIDTH) && (hc < HISCORE10X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE10X+5*SCORE_LINE_WIDTH) && (hc < HISCORE10X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH)) ||                     
+                        ((hc >= HISCORE10X) && (hc < HISCORE10X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+8*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))                     
+                    ) hiscore10_pix <= 1; else hiscore10_pix <= 0;
+                6: if(
+                        ((hc >= HISCORE10X+2*SCORE_LINE_WIDTH) && (hc < HISCORE10X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE10X) && (hc < HISCORE10X+SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE10X+2*SCORE_LINE_WIDTH) && (hc < HISCORE10X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE10X+5*SCORE_LINE_WIDTH) && (hc < HISCORE10X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH)) ||                     
+                        ((hc >= HISCORE10X+2*SCORE_LINE_WIDTH) && (hc < HISCORE10X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+8*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH)) ||
+                        ((hc >= HISCORE10X) && (hc < HISCORE10X+SCORE_LINE_WIDTH) && (vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))                                    
+                    ) hiscore10_pix <= 1; else hiscore10_pix <= 0;
+                7: if(
+                        ((hc >= HISCORE10X) && (hc < HISCORE10X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE10X+5*SCORE_LINE_WIDTH) && (hc < HISCORE10X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE10X+5*SCORE_LINE_WIDTH) && (hc < HISCORE10X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))                         
+                    ) hiscore10_pix <= 1; else hiscore10_pix <= 0;
+                8: if(
+                        ((hc >= HISCORE10X+2*SCORE_LINE_WIDTH) && (hc < HISCORE10X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        (((hc >= HISCORE10X) && (hc < (HISCORE10X+SCORE_LINE_WIDTH))) && ((vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE10X+2*SCORE_LINE_WIDTH) && (hc < HISCORE10X+4*SCORE_LINE_WIDTH)) && ((vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE10X+5*SCORE_LINE_WIDTH) && (hc < (HISCORE10X+6*SCORE_LINE_WIDTH))) && ((vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE10X+5*SCORE_LINE_WIDTH) && (hc < (HISCORE10X+6*SCORE_LINE_WIDTH))) && ((vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE10X+2*SCORE_LINE_WIDTH) && (hc < HISCORE10X+4*SCORE_LINE_WIDTH)) && ((vc >= SCOREY+8*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE10X) && (hc < (HISCORE10X+SCORE_LINE_WIDTH))) && ((vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))) 
+                    ) hiscore10_pix <= 1; else hiscore10_pix <= 0;
+                9: if(
+                        ((hc >= HISCORE10X+2*SCORE_LINE_WIDTH) && (hc < HISCORE10X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        (((hc >= HISCORE10X) && (hc < (HISCORE10X+SCORE_LINE_WIDTH))) && ((vc >= SCOREY) && (vc < SCOREY+5*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE10X+2*SCORE_LINE_WIDTH) && (hc < HISCORE10X+4*SCORE_LINE_WIDTH)) && ((vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE10X+5*SCORE_LINE_WIDTH) && (hc < (HISCORE10X+6*SCORE_LINE_WIDTH))) && ((vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE10X+5*SCORE_LINE_WIDTH) && (hc < (HISCORE10X+6*SCORE_LINE_WIDTH))) && ((vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))) 
+                    ) hiscore10_pix <= 1; else hiscore10_pix <= 0;
+            endcase
+            case (hiscore_hun)
+                0:  if(
+                        (((hc >= HISCORE100X) && (hc < (HISCORE100X+SCORE_LINE_WIDTH))) && ((vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE100X+2*SCORE_LINE_WIDTH) && (hc < HISCORE100X+4*SCORE_LINE_WIDTH)) && ((vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE100X+5*SCORE_LINE_WIDTH) && (hc < (HISCORE100X+6*SCORE_LINE_WIDTH))) && ((vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE100X+5*SCORE_LINE_WIDTH) && (hc < (HISCORE100X+6*SCORE_LINE_WIDTH))) && ((vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE100X+2*SCORE_LINE_WIDTH) && (hc < HISCORE100X+4*SCORE_LINE_WIDTH)) && ((vc >= SCOREY+8*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE100X) && (hc < (HISCORE100X+SCORE_LINE_WIDTH))) && ((vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))) 
+                    ) hiscore100_pix <= 1; else hiscore100_pix <= 0;
+                1: if(
+                        ((hc >= HISCORE100X+5*SCORE_LINE_WIDTH) && (hc < HISCORE100X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE100X+5*SCORE_LINE_WIDTH) && (hc < HISCORE100X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))                         
+                    ) hiscore100_pix <= 1; else hiscore100_pix <= 0;
+                2: if(
+                        ((hc >= HISCORE100X) && (hc < HISCORE100X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE100X+5*SCORE_LINE_WIDTH) && (hc < HISCORE100X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE100X+2*SCORE_LINE_WIDTH) && (hc < HISCORE100X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE100X) && (hc < HISCORE100X+SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH)) ||                     
+                        ((hc >= HISCORE100X+2*SCORE_LINE_WIDTH) && (hc < HISCORE100X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY+8*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))                     
+                    ) hiscore100_pix <= 1; else hiscore100_pix <= 0;
+                3: if(
+                        ((hc >= HISCORE100X) && (hc < HISCORE100X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE100X+5*SCORE_LINE_WIDTH) && (hc < HISCORE100X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE100X+2*SCORE_LINE_WIDTH) && (hc < HISCORE100X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE100X+5*SCORE_LINE_WIDTH) && (hc < HISCORE100X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH)) ||                     
+                        ((hc >= HISCORE100X) && (hc < HISCORE100X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+8*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))                     
+                    ) hiscore100_pix <= 1; else hiscore100_pix <= 0;
+                4: if(
+                        ((hc >= HISCORE100X) && (hc < HISCORE100X+SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE100X+5*SCORE_LINE_WIDTH) && (hc < HISCORE100X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE100X+2*SCORE_LINE_WIDTH) && (hc < HISCORE100X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE100X+5*SCORE_LINE_WIDTH) && (hc < HISCORE100X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))                   
+                    ) hiscore100_pix <= 1; else hiscore100_pix <= 0;
+                5: if(
+                        ((hc >= HISCORE100X+2*SCORE_LINE_WIDTH) && (hc < HISCORE100X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE100X) && (hc < HISCORE100X+SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE100X+2*SCORE_LINE_WIDTH) && (hc < HISCORE100X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE100X+5*SCORE_LINE_WIDTH) && (hc < HISCORE100X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH)) ||                     
+                        ((hc >= HISCORE100X) && (hc < HISCORE100X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+8*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))                     
+                    ) hiscore100_pix <= 1; else hiscore100_pix <= 0;
+                6: if(
+                        ((hc >= HISCORE100X+2*SCORE_LINE_WIDTH) && (hc < HISCORE100X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE100X) && (hc < HISCORE100X+SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE100X+2*SCORE_LINE_WIDTH) && (hc < HISCORE100X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE100X+5*SCORE_LINE_WIDTH) && (hc < HISCORE100X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH)) ||                     
+                        ((hc >= HISCORE100X+2*SCORE_LINE_WIDTH) && (hc < HISCORE100X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+8*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH)) ||
+                        ((hc >= HISCORE100X) && (hc < HISCORE100X+SCORE_LINE_WIDTH) && (vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))                                    
+                    ) hiscore100_pix <= 1; else hiscore100_pix <= 0;
+                7: if(
+                        ((hc >= HISCORE100X) && (hc < HISCORE100X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE100X+5*SCORE_LINE_WIDTH) && (hc < HISCORE100X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE100X+5*SCORE_LINE_WIDTH) && (hc < HISCORE100X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))                         
+                    ) hiscore100_pix <= 1; else hiscore100_pix <= 0;
+                8: if(
+                        ((hc >= HISCORE100X+2*SCORE_LINE_WIDTH) && (hc < HISCORE100X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        (((hc >= HISCORE100X) && (hc < (HISCORE100X+SCORE_LINE_WIDTH))) && ((vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE100X+2*SCORE_LINE_WIDTH) && (hc < HISCORE100X+4*SCORE_LINE_WIDTH)) && ((vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE100X+5*SCORE_LINE_WIDTH) && (hc < (HISCORE100X+6*SCORE_LINE_WIDTH))) && ((vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE100X+5*SCORE_LINE_WIDTH) && (hc < (HISCORE100X+6*SCORE_LINE_WIDTH))) && ((vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE100X+2*SCORE_LINE_WIDTH) && (hc < HISCORE100X+4*SCORE_LINE_WIDTH)) && ((vc >= SCOREY+8*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE100X) && (hc < (HISCORE100X+SCORE_LINE_WIDTH))) && ((vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))) 
+                    ) hiscore100_pix <= 1; else hiscore100_pix <= 0;
+                9: if(
+                        ((hc >= HISCORE100X+2*SCORE_LINE_WIDTH) && (hc < HISCORE100X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        (((hc >= HISCORE100X) && (hc < (HISCORE100X+SCORE_LINE_WIDTH))) && ((vc >= SCOREY) && (vc < SCOREY+5*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE100X+2*SCORE_LINE_WIDTH) && (hc < HISCORE100X+4*SCORE_LINE_WIDTH)) && ((vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE100X+5*SCORE_LINE_WIDTH) && (hc < (HISCORE100X+6*SCORE_LINE_WIDTH))) && ((vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE100X+5*SCORE_LINE_WIDTH) && (hc < (HISCORE100X+6*SCORE_LINE_WIDTH))) && ((vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))) 
+                    ) hiscore100_pix <= 1; else hiscore100_pix <= 0;
+            endcase
+            case (hiscore_th)
+                0:  if(
+                        (((hc >= HISCORE1000X) && (hc < (HISCORE1000X+SCORE_LINE_WIDTH))) && ((vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE1000X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1000X+4*SCORE_LINE_WIDTH)) && ((vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE1000X+5*SCORE_LINE_WIDTH) && (hc < (HISCORE1000X+6*SCORE_LINE_WIDTH))) && ((vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE1000X+5*SCORE_LINE_WIDTH) && (hc < (HISCORE1000X+6*SCORE_LINE_WIDTH))) && ((vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE1000X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1000X+4*SCORE_LINE_WIDTH)) && ((vc >= SCOREY+8*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE1000X) && (hc < (HISCORE1000X+SCORE_LINE_WIDTH))) && ((vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))) 
+                    ) hiscore1000_pix <= 1; else hiscore1000_pix <= 0;
+                1: if(
+                        ((hc >= HISCORE1000X+5*SCORE_LINE_WIDTH) && (hc < HISCORE1000X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1000X+5*SCORE_LINE_WIDTH) && (hc < HISCORE1000X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))                         
+                    ) hiscore1000_pix <= 1; else hiscore1000_pix <= 0;
+                2: if(
+                        ((hc >= HISCORE1000X) && (hc < HISCORE1000X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1000X+5*SCORE_LINE_WIDTH) && (hc < HISCORE1000X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1000X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1000X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1000X) && (hc < HISCORE1000X+SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH)) ||                     
+                        ((hc >= HISCORE1000X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1000X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY+8*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))                     
+                    ) hiscore1000_pix <= 1; else hiscore1000_pix <= 0;
+                3: if(
+                        ((hc >= HISCORE1000X) && (hc < HISCORE1000X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1000X+5*SCORE_LINE_WIDTH) && (hc < HISCORE1000X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1000X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1000X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1000X+5*SCORE_LINE_WIDTH) && (hc < HISCORE1000X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH)) ||                     
+                        ((hc >= HISCORE1000X) && (hc < HISCORE1000X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+8*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))                     
+                    ) hiscore1000_pix <= 1; else hiscore1000_pix <= 0;
+                4: if(
+                        ((hc >= HISCORE1000X) && (hc < HISCORE1000X+SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1000X+5*SCORE_LINE_WIDTH) && (hc < HISCORE1000X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1000X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1000X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1000X+5*SCORE_LINE_WIDTH) && (hc < HISCORE1000X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))                   
+                    ) hiscore1000_pix <= 1; else hiscore1000_pix <= 0;
+                5: if(
+                        ((hc >= HISCORE1000X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1000X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1000X) && (hc < HISCORE1000X+SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1000X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1000X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1000X+5*SCORE_LINE_WIDTH) && (hc < HISCORE1000X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH)) ||                     
+                        ((hc >= HISCORE1000X) && (hc < HISCORE1000X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+8*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))                     
+                    ) hiscore1000_pix <= 1; else hiscore1000_pix <= 0;
+                6: if(
+                        ((hc >= HISCORE1000X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1000X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1000X) && (hc < HISCORE1000X+SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1000X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1000X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1000X+5*SCORE_LINE_WIDTH) && (hc < HISCORE1000X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH)) ||                     
+                        ((hc >= HISCORE1000X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1000X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+8*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH)) ||
+                        ((hc >= HISCORE1000X) && (hc < HISCORE1000X+SCORE_LINE_WIDTH) && (vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))                                    
+                    ) hiscore1000_pix <= 1; else hiscore1000_pix <= 0;
+                7: if(
+                        ((hc >= HISCORE1000X) && (hc < HISCORE1000X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1000X+5*SCORE_LINE_WIDTH) && (hc < HISCORE1000X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH)) || 
+                        ((hc >= HISCORE1000X+5*SCORE_LINE_WIDTH) && (hc < HISCORE1000X+6*SCORE_LINE_WIDTH) && (vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))                         
+                    ) hiscore1000_pix <= 1; else hiscore1000_pix <= 0;
+                8: if(
+                        ((hc >= HISCORE1000X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1000X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        (((hc >= HISCORE1000X) && (hc < (HISCORE1000X+SCORE_LINE_WIDTH))) && ((vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE1000X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1000X+4*SCORE_LINE_WIDTH)) && ((vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE1000X+5*SCORE_LINE_WIDTH) && (hc < (HISCORE1000X+6*SCORE_LINE_WIDTH))) && ((vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE1000X+5*SCORE_LINE_WIDTH) && (hc < (HISCORE1000X+6*SCORE_LINE_WIDTH))) && ((vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE1000X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1000X+4*SCORE_LINE_WIDTH)) && ((vc >= SCOREY+8*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE1000X) && (hc < (HISCORE1000X+SCORE_LINE_WIDTH))) && ((vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))) 
+                    ) hiscore1000_pix <= 1; else hiscore1000_pix <= 0;
+                9: if(
+                        ((hc >= HISCORE1000X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1000X+4*SCORE_LINE_WIDTH) && (vc >= SCOREY+4*SCORE_LINE_WIDTH) && (vc < SCOREY+5*SCORE_LINE_WIDTH)) || 
+                        (((hc >= HISCORE1000X) && (hc < (HISCORE1000X+SCORE_LINE_WIDTH))) && ((vc >= SCOREY) && (vc < SCOREY+5*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE1000X+2*SCORE_LINE_WIDTH) && (hc < HISCORE1000X+4*SCORE_LINE_WIDTH)) && ((vc >= SCOREY) && (vc < SCOREY+SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE1000X+5*SCORE_LINE_WIDTH) && (hc < (HISCORE1000X+6*SCORE_LINE_WIDTH))) && ((vc >= SCOREY) && (vc < SCOREY+4*SCORE_LINE_WIDTH))) ||
+                        (((hc >= HISCORE1000X+5*SCORE_LINE_WIDTH) && (hc < (HISCORE1000X+6*SCORE_LINE_WIDTH))) && ((vc >= SCOREY+5*SCORE_LINE_WIDTH) && (vc < SCOREY+9*SCORE_LINE_WIDTH))) 
+                    ) hiscore1000_pix <= 1; else hiscore1000_pix <= 0;
+            endcase
+        end
+    end
+
 	// OFL
     always @ (posedge Clk)
     case(state)
@@ -716,7 +1065,7 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
                 ( (hc >= varchar_x1-4) && (hc < varchar_x1 + CHAR_WIDTH*(2**CHAR_SCALE)+4) && (vc >= varchar_y-4) && (vc < varchar_y+CHAR_HEIGHT*(2**CHAR_SCALE)+4)) 
                 ? 4'b1001 : 0);
         end
-        IDLE, RUN1, RUN2, JUMP1, JUMP2, DUCK1, DUCK2: begin
+        IDLE, RUN1, RUN2, JUMP1, JUMP2, DUCK1, DUCK2, FAIL1, FAIL2: begin
             if ((state == DUCK1 || state == DUCK2)) begin 
                 if ((hc >= CHARX) && (hc < CHARX+CHAR_LONG_WIDTH*(2**CHAR_SCALE)) && (vc >= varchar_y) && (vc < varchar_y + CHAR_HEIGHT*(2**CHAR_SCALE))) // CHECK IF HC VC IN CHAR RANGE TO AVOID GLITCH
                 begin
@@ -728,6 +1077,17 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
                 end
                 else 
                     pix <= 4'b0000;
+            end
+            else if (state == FAIL1) begin // if fail text, else if box around option 1, else if char location (if char 1, else char 0), else empty
+                // when compared with background pix later, this pix should always take precedent
+                pix <= failtext_pix ? failtext_pix : (((hc >= failtext_x) && (hc < failtext_x + 68*(2**failtext_scale)) && (vc >= failtext_y+17*(2**failtext_scale)) && (vc < failtext_y+26*(2**failtext_scale)) ) ? 4'b1001 : 
+                    (((hc >= CHARX) && (hc < CHARX+CHAR_LONG_WIDTH*(2**CHAR_SCALE)) && (vc >= varchar_y) && (vc < varchar_y + CHAR_HEIGHT*(2**CHAR_SCALE))) ? 
+                    (char0or1 ? char1_pix : char_pix) : 4'b0000));
+            end
+            else if(state == FAIL2) begin
+                pix <= failtext_pix ? failtext_pix : (((hc >= failtext_x) && (hc < failtext_x + 68*(2**failtext_scale)) && (vc >= failtext_y+28*(2**failtext_scale)) && (vc < failtext_y+37*(2**failtext_scale)) ) ? 4'b1001 : 
+                    (((hc >= CHARX) && (hc < CHARX+CHAR_LONG_WIDTH*(2**CHAR_SCALE)) && (vc >= varchar_y) && (vc < varchar_y + CHAR_HEIGHT*(2**CHAR_SCALE))) ? 
+                    (char0or1 ? char1_pix : char_pix) : 4'b0000));
             end
             else begin
                 if ((hc >= CHARX) && (hc < CHARX+CHAR_WIDTH*(2**CHAR_SCALE)) && (vc >= varchar_y) && (vc < varchar_y + CHAR_HEIGHT*(2**CHAR_SCALE))) // CHECK IF HC VC IN CHAR RANGE TO AVOID GLITCH
@@ -742,6 +1102,8 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
             end
             if (score1_pix || score10_pix || score100_pix || score1000_pix)
                 score_pix <= 4'b1000;
+            else if (hiscore1_pix || hiscore10_pix || hiscore100_pix || hiscore1000_pix)
+                score_pix <= 4'b1010;
             else
                 score_pix <= 4'b0000;
             // if (char0or1 == 0)
@@ -1101,6 +1463,30 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
         .pix(seltext_pix),
         .drawing(seltext_drawing),
         .en(seltext_en)
+    );
+
+    // FAILTEXT FAIL COLLISION TEXT
+    wire signed [CORDW-1:0] failtext_x, failtext_y;
+    assign failtext_x = 300, failtext_y = 205; 
+    reg failtext_en;
+	wire [CIDXW-1:0] failtext_pix;
+    localparam failtext_scale = 2;
+
+    sprite #(
+        .SPR_FILE("failtext.mem"),
+        .SPR_WIDTH(68),
+        .SPR_HEIGHT(35),
+		.SPR_SCALE(failtext_scale)
+    ) failtext (
+        .clk(clk25),
+        .rst(Reset),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(failtext_x),
+        .spry(failtext_y),
+        .pix(failtext_pix),
+        .en(failtext_en)
     );
 
 
