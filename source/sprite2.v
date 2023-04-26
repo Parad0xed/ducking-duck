@@ -34,10 +34,10 @@ module sprite2 #(
     reg [SPR_SCALE:0] cnt_x;
 
     // for registering sprite position
-    reg signed [CORDW-1:0] sprx_r, spry_r;
+    reg unsigned [CORDW-1:0] sprx_r, spry_r;
 
     // status flags: used to change state
-    wire signed [CORDW-1:0]  spr_diff;  // diff vertical screen and sprite positions
+    wire signed [CORDW:0]  spr_diff;  // diff vertical screen and sprite positions
     wire spr_active;  // sprite active on this line
     wire spr_begin;   // begin sprite drawing
     wire spr_end;     // end of sprite on this line
@@ -78,10 +78,14 @@ module sprite2 #(
                         spr_rom_addr <= spr_diff * SPR_WIDTH + (sx - sprx_r) + SX_OFFS;
                         bmap_x <= 0;
                         cnt_x <= 0;
+                        if(sx < 20 && sy > 150)
+                            $display("spr_diff: %d, sx: %d, sprx_r: %d, sx-sr: %d", spr_diff, sx, sprx_r,  (sx-sprx_r));
                     end
                 end
                 SPR_LINE: begin
                     // extra state to wait for data from synchronous rom
+                    if(sx < 20 && sy > 150)
+                            $display("sprite rom addr at hc=%d vc=%d : %d", sx, sy, spr_rom_addr);
                     state <= TEST;
                     // if (spr_end || line_end) state <= WAIT_DATA; // is this line necessary??
                     // spr_rom_addr <= spr_rom_addr + 1;
@@ -117,7 +121,7 @@ module sprite2 #(
                         // bmap_x <= bmap_x + 1;
                         cnt_x <= 0;
                     end else cnt_x <= cnt_x + 1;
-                    $write("%h ",spr_rom_data);
+                    // $write("%h ",spr_rom_data);
                 end
                 WAIT_DATA: begin
                     state <= IDLE;  // 1 cycle between address set and data receipt

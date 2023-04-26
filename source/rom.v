@@ -16,7 +16,7 @@ module rom #(parameter WIDTH=8,
 
     initial begin
         if (INIT_F != 0) begin
-            $display("Creating rom_async from init file '%s'.", INIT_F);
+            // $display("Creating rom_async from init file '%s'.", INIT_F);
             $readmemh(INIT_F, memory);
         end
     end
@@ -30,9 +30,9 @@ module rom #(parameter WIDTH=8,
     integer i;
 
     initial begin // for debugging: checking memory -> address
-        $display("rdata:");
-        for (i=0; i < DEPTH; i=i+1)
-            $display("%d:%h",i,memory[i]);
+        // $display("rdata:");
+        // for (i=0; i < DEPTH; i=i+1)
+            // $display("%d:%h",i,memory[i]);
     end
 endmodule
 
