@@ -141,7 +141,7 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, FAIL_signal, B
                         varchar_y <= CHARY;
                         varchar_x <= CHARX; varchar_x1 <= CHARX;
                         // char0or1 <= 0;
-                        FAIL_signal <= 0;
+                        //FAIL_signal <= 0;
                         score_count_en <= 0;
                         score_en <= 0;
                         failtext_en <= 0;
@@ -161,7 +161,7 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, FAIL_signal, B
                         varchar_y <= CHARY;
                         varchar_x <= CHARX; varchar_x1 <= CHARX;
                         // char0or1 <= 0;
-                        FAIL_signal <= 0;
+                        // FAIL_signal <= 0;
                         score_count_en <= 0;
                         score_en <= 0;
                         failtext_en <= 0;
@@ -185,7 +185,7 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, FAIL_signal, B
                     varchar_y <= CHARY;
                     varchar_x <= CHARX; varchar_x1 <= CHARX;
                     char0or1 <= 0;
-                    FAIL_signal <= 0;
+                    //FAIL_signal <= 0;
                     hiscore_one <= 0; hiscore_ten <= 0; hiscore_hun <= 0; hiscore_th <= 0;
                     // score vars: // need to do this in same block. figure this out on game lose + play again
                     // score_count_en <= 0;
@@ -242,7 +242,6 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, FAIL_signal, B
                         varchar_x1 <= CHARX;
                         seltext_en <= 0;
                         state <= IDLE;
-                        fail_flag <= 0;
                     end
                 end
                 CHARSEL1: begin 
@@ -258,7 +257,6 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, FAIL_signal, B
                         varchar_x1 <= CHARX;
                         seltext_en <= 0;
                         state <= IDLE;
-                        fail_flag <= 0;
                     end
                 end
                 // BELOW SECTION FOR CHAR STATES
@@ -268,6 +266,7 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, FAIL_signal, B
                     idle1_en <= 1;
                     varchar_x <= CHARX;
                     if(BtnU_Pulse) begin
+                        fail_flag <= 0;
                         idle_en <= 0;
                         idle1_en <= 0;
                         state <= RUN1;
@@ -1473,7 +1472,7 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, FAIL_signal, B
 
     // FAILTEXT FAIL COLLISION TEXT
     wire signed [CORDW-1:0] failtext_x, failtext_y;
-    assign failtext_x = 300, failtext_y = 205; 
+    assign failtext_x = 300, failtext_y = 195; 
     reg failtext_en;
 	wire [CIDXW-1:0] failtext_pix;
     localparam failtext_scale = 2;

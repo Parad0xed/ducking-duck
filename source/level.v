@@ -5,12 +5,13 @@ module level #(
     input CLK,
     input RESET,
     input line,
+    input clk25,
     input [3:0] state,
     input [9:0] hc,
     input [9:0] vc,
 
-    output reg[CIDXW:0] level_pix, //4 bit pixel output for level
-    output reg[CIDXW:0] obstacle_pix //4 bit pixel output for obstacle
+    output reg [CIDXW:0] level_pix, //4 bit pixel output for level
+    output [CIDXW:0] obstacle_pix //4 bit pixel output for obstacle
     );
 
     //Register list
@@ -24,10 +25,10 @@ module level #(
     localparam 	
 	    TITLE = 4'b0000, TITLE1 = 4'b0001, TITLE2 = 4'b0010, TITLE3 = 4'b0011, TITLE4 = 4'b0100, 
         RUN1 = 4'b0101, RUN2 = 4'b0110, JUMP1 = 4'b0111, JUMP2 = 4'b1000, DUCK1 = 4'b1001, DUCK2 = 4'b1010, IDLE = 4'b1011, 
-        CHARSEL0 = 4'b1100, CHARSEL1 = 4'b1101, UNK = 4'bXXXX;
-    wire gameRunning;
+        CHARSEL0 = 4'b1100, CHARSEL1 = 4'b1101, FAIL1 = 4'b1110, FAIL2 = 4'b1111, UNK = 4'bXXXX;
+    wire gameRunning, gameStill;
     assign gameRunning = ((state == RUN1) || (state == RUN2) || (state == JUMP1) || (state == JUMP2) || (state == DUCK1) || (state == DUCK2));
-
+    assign gameStill = ((state == IDLE) || (state == FAIL1) || (state == FAIL2));
     //Always block to handle DIVCLK
     always @ (posedge CLK, posedge RESET) begin
         if(RESET) DIVCLK <= 0;
@@ -45,7 +46,9 @@ module level #(
     //obstacle #() ob1(.CLK(CLK), .DIVCLK(DIVCLK), .RESET(RESET), .line(line), .state(state), .hc(hc), .vc(vc), .speed(speed), .location(loc1), .busy(busy1), .done(done1), .pix(obspix1));
     //obstacle #() ob2(.CLK(CLK), .DIVCLK(DIVCLK), .RESET(RESET), .line(line), .state(state), .hc(hc), .vc(vc), .speed(speed), .location(loc2), .busy(busy2), .done(done2), .pix(obspix2));
     //obstacle #() ob3(.CLK(CLK), .DIVCLK(DIVCLK), .RESET(RESET), .line(line), .state(state), .hc(hc), .vc(vc), .speed(speed), .location(loc3), .busy(busy3), .done(done3), .pix(obspix3));
+    assign obstacle_pix = low2_data;
     reg [9:0] x1, x2, x3;
+    reg [9:0] y1, y2, y3;
 
     //Background Generation
     //hc 143 to 784
@@ -55,7 +58,7 @@ module level #(
             level_pix <= 4'b0000;
             BGMod <= 3'b000; //Setting this to not 0 causes color inversion
         end
-        else if(gameRunning && (hc >= 170 && hc <= 750)) begin
+        else if((gameRunning || gameStill) && (hc >= 170 && hc <= 750)) begin
             if(vc == 308) begin
                 if({hc[2], hc[1], hc[0]} == BGMod) level_pix <= 4'b0111;
                 else level_pix <= 4'b0000;
@@ -66,33 +69,48 @@ module level #(
             end
             else level_pix <= 4'b0000;
 
-            BGCounter <= BGCounter + 1;
+            if(!gameStill) BGCounter <= BGCounter + 1;
             if(BGCounter == 4'hFFFFF) BGMod <= BGMod - 1;
         end
         else level_pix <= 4'b0000;
     end
 
-    //Always block to track when the next obstacle is generated
+    //Track when the next obstacle is generated
     always @ (posedge DIVCLK[23], posedge RESET) begin
-        if(RESET) begin //Will need to add initialization for game reset instead of global reset
+        if(RESET || (state==IDLE)) begin //Will need to add initialization for game reset instead of global reset
             obstacleCooldown <= 0;
             busy1 <= 0; busy2 <= 0; busy3 <= 0;
-            loc1 <= 0; loc2 <= 0; loc3 <= 0;
+            //loc1 <= 0; loc2 <= 0; loc3 <= 0;
         end
         else if(gameRunning) begin
             if (obstacleCooldown >= 18) begin //Next obstacle ready to generate (6 divclk23s per second)
                 if(!busy1 || !busy2 || !busy3) obstacleCooldown <= 0;
                 if(!busy1) begin
                     busy1 <= 1;
-                    loc1 <= (randVal % 3) + 1;
+                    case((randVal % 3) + 1)
+                        1: y1 <= 160;
+                        2: y1 <= 200;
+                        3: y1 <= 240;
+                    endcase
+                    //loc1 <= (randVal % 3) + 1;
                 end
                 else if(!busy2) begin
                     busy2 <= 1;
-                    loc2 <= (randVal % 3) + 1;
+                    case((randVal % 3) + 1)
+                        1: y2 <= 160;
+                        2: y2 <= 200;
+                        3: y2 <= 240;
+                    endcase
+                    //loc2 <= (randVal % 3) + 1;
                 end
                 else if(!busy3) begin
                     busy3 <= 1;
-                    loc3 <= (randVal % 3) + 1;
+                    case((randVal % 3) + 1)
+                        1: y3 <= 160;
+                        2: y3 <= 200;
+                        3: y3 <= 240;
+                    endcase
+                    //loc3 <= (randVal % 3) + 1;
                 end
             end
             else obstacleCooldown <= obstacleCooldown + 1;
@@ -107,34 +125,20 @@ module level #(
 
     //Display obstacles
     always @ (posedge CLK) begin
-        obstacle_pix <= (obspix1 | obspix2 | obspix3);
-        
         if(busy1 && hc == x1) begin
-           if((loc1 == 1 && vc == 160) ||
-               (loc1 == 2 && vc == 200) ||
-               (loc1 == 3 && vc == 250)) begin   
-                obspix1 <= 4'b1000;
-            end
+            if(vc == y1) obspix1 <= 4'b1000;
             else obspix1 <= 4'b0000;
         end
         else obspix1 <= 4'b0000;
 
         if(busy2 && hc == x2) begin
-           if((loc2 == 1 && vc == 160) ||
-               (loc2 == 2 && vc == 200) ||
-               (loc2 == 3 && vc == 250)) begin   
-                obspix2 <= 4'b1000;
-            end
-            else obspix2 <= 4'b0000;
+           if(vc == y2) obspix2 <= 4'b1000;
+           else obspix2 <= 4'b0000;
         end
         else obspix2 <= 4'b0000;
 
         if(busy3 && hc == x3) begin
-           if((loc3 == 1 && vc == 160) ||
-               (loc3 == 2 && vc == 200) ||
-               (loc3 == 3 && vc == 250)) begin   
-                obspix3 <= 4'b1000;
-            end
+           if(vc == y3) obspix3 <= 4'b1000;
             else obspix3 <= 4'b0000;
         end
         else obspix3 <= 4'b0000;
@@ -142,15 +146,112 @@ module level #(
     end
 
     //Move obstacles
-    always @ (posedge DIVCLK[19]) begin
-        if(busy1) x1 <= x1 - 1; //Running
-        else x1 <= 700; //Not Running
-        
-        if(busy2) x2 <= x2 - 1;
-        else x2 <= 700;
+    always @ (posedge DIVCLK[18]) begin
+        if(gameRunning) begin
+            if(busy1) x1 <= x1 - 1; //Running
+            else x1 <= 750; //Not Running
+            
+            if(busy2) x2 <= x2 - 1;
+            else x2 <= 750;
 
-        if(busy3) x3 <= x3 - 1;
-        else x3 <= 700;
+            if(busy3) x3 <= x3 - 1;
+            else x3 <= 750;
+        end
+        else if(state == IDLE) begin
+            x1 <= 750;
+            x2 <= 750;
+            x3 <= 750;
+        end
     end
+
+
+//SPRITES
+    sprite2 #(
+        .SPR_WIDTH(LOW2_WIDTH),
+        .SPR_HEIGHT(LOW2_HEIGHT),
+		.SPR_SCALE(LOW2_SCALE)
+    ) low2p1 (
+        .clk(clk25),
+        .rst(RESET),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(x1),
+        .spry(y1),
+		.spr_rom_addr(low2_addr1),
+        .en(busy1)
+    );
+
+    sprite2 #(
+        .SPR_WIDTH(LOW2_WIDTH),
+        .SPR_HEIGHT(LOW2_HEIGHT),
+		.SPR_SCALE(LOW2_SCALE)
+    ) low2p2 (
+        .clk(clk25),
+        .rst(RESET),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(x2),
+        .spry(y2),
+		.spr_rom_addr(low2_addr2),
+        .en(busy2)
+    );
+
+    sprite2 #(
+        .SPR_WIDTH(LOW2_WIDTH),
+        .SPR_HEIGHT(LOW2_HEIGHT),
+		.SPR_SCALE(LOW2_SCALE)
+    ) low2p3 (
+        .clk(clk25),
+        .rst(RESET),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(x3),
+        .spry(y3),
+		.spr_rom_addr(low2_addr3),
+        .en(busy3)
+    );
+
+    // CACTUS "LOWOBS2"
+    localparam LOW2_WIDTH  =  30;  // bitmap width in pixels
+    localparam LOW2_HEIGHT =  32;  // bitmap height in pixels
+    localparam LOW2_SCALE  =  1;  // 2^2 = 4x scale
+	localparam LOW2_FILE = "lowobs2.mem";
+    localparam LOW2ROMDEPTH = LOW2_WIDTH * LOW2_HEIGHT;
+    wire [$clog2(LOW2ROMDEPTH)-1:0] low2_addr1, low2_addr2, low2_addr3;
+    wire [$clog2(LOW2ROMDEPTH)-1:0] low2_addr;  // pixel position
+    wire [CIDXW-1:0] low2_data;  // pixel color
+	assign low2_addr = low2_addr1 | low2_addr2 | low2_addr3;
+    rom #(
+        .WIDTH(3), // SPR_DATAW),
+        .DEPTH(LOW2ROMDEPTH),
+        .INIT_F(LOW2_FILE)
+	) low2 (
+        .clk(clk25),
+        .addr(low2_addr),
+        .data(low2_data)
+    );
+
+    // HELICOPTER "HIGHOBS1"
+    localparam HIGH1_WIDTH  =  40;  // bitmap width in pixels
+    localparam HIGH1_HEIGHT =  32;  // bitmap height in pixels
+    localparam HIGH1_SCALE  =  1;  // 2^2 = 4x scale
+	localparam HIGH1_FILE = "highobs1.mem";
+    localparam HIGH1ROMDEPTH = HIGH1_WIDTH * HIGH1_HEIGHT;
+    wire [$clog2(HIGH1ROMDEPTH)-1:0] high1_addr1, high1_addr2, high1_addr3;
+    wire [$clog2(HIGH1ROMDEPTH)-1:0] high1_addr;  // pixel position
+    wire [CIDXW-1:0] high1_data;  // pixel color
+	assign high1_addr = high1_addr1 | high1_addr2 | high1_addr3;
+    rom #(
+        .WIDTH(3), // SPR_DATAW),
+        .DEPTH(HIGH1ROMDEPTH),
+        .INIT_F(HIGH1_FILE)
+    ) high1 (
+        .clk(clk25),
+        .addr(high1_addr),
+        .data(high1_data)
+    );
 
 endmodule
