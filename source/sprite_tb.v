@@ -29,6 +29,116 @@ module sprite_tb;
     localparam H_RES = 784;
     localparam CIDXW = 3;
 
+
+    /* ========================================================================== */
+
+    // ONE TIME IN 'LEVEL' MODULE
+
+    assign output_pix = low2_data | high1_data;
+
+    // CACTUS "LOWOBS2"
+    localparam LOW2_WIDTH  =  30;  // bitmap width in pixels
+    localparam LOW2_HEIGHT =  32;  // bitmap height in pixels
+    localparam LOW2_SCALE  =  1;  // 2^2 = 4x scale
+	localparam LOW2_FILE = "lowobs2.mem";
+    localparam LOW2ROMDEPTH = LOW2_WIDTH * LOW2_HEIGHT;
+    wire [$clog2(LOW2ROMDEPTH)-1:0] low2_addr1, low2_addr2, low2_addr3;
+    wire [$clog2(LOW2ROMDEPTH)-1:0] low2_addr;  // pixel position
+    wire [CIDXW-1:0] low2_data;  // pixel color
+	assign low2_addr = low2_addr1 | low2_addr2 | low2_addr3;
+    rom #(
+        .WIDTH(3), // SPR_DATAW),
+        .DEPTH(LOW2ROMDEPTH),
+        .INIT_F(LOW2_FILE)
+	) test (
+        .clk(clk25),
+        .addr(low2_addr),
+        .data(low2_data)
+    );
+
+    // HELICOPTER "HIGHOBS1"
+    localparam HIGH1_WIDTH  =  40;  // bitmap width in pixels
+    localparam HIGH1_HEIGHT =  32;  // bitmap height in pixels
+    localparam HIGH1_SCALE  =  1;  // 2^2 = 4x scale
+	localparam HIGH1_FILE = "highobs1.mem";
+    localparam HIGH1ROMDEPTH = HIGH1_WIDTH * HIGH1_HEIGHT;
+    wire [$clog2(HIGH1ROMDEPTH)-1:0] high1_addr1, high1_addr2, high1_addr3;
+    wire [$clog2(HIGH1ROMDEPTH)-1:0] high1_addr;  // pixel position
+    wire [CIDXW-1:0] high1_data;  // pixel color
+	assign high1_addr = high1_addr1 | high1_addr2 | high1_addr3;
+    rom #(
+        .WIDTH(3), // SPR_DATAW),
+        .DEPTH(HIGH1ROMDEPTH),
+        .INIT_F(HIGH1_FILE)
+	) test (
+        .clk(clk25),
+        .addr(high1_addr),
+        .data(high1_data)
+    );
+
+
+    /* =========================================================================== */
+
+    // DUPLICATED CODE IN EACH OBSTACLE INSTANCE, FOR n UNIQUE OBSTACLES
+    //      Note: each obstacle instance will need to have n output reg containing address from each sprite module
+    reg [9:0] sprx, spry;
+    reg low2_en, high1_en; // add more when adding more obstacles
+
+
+    localparam LOW2_WIDTH  =  30;  // bitmap width in pixels
+    localparam LOW2_HEIGHT =  32;  // bitmap height in pixels
+    localparam LOW2_SCALE  =  1;  // 2^2 = 4x scale
+    sprite2 #(
+        .SPR_WIDTH(LOW2_WIDTH),
+        .SPR_HEIGHT(LOW2_HEIGHT),
+		.SPR_SCALE(LOW2_SCALE)
+    ) low2 (
+        .clk(clk25),
+        .rst(Reset),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(sprx),
+        .spry(spry),
+		.spr_rom_addr(low2_addr1),
+        .en(low2_en)
+    );
+
+    localparam HIGH1_WIDTH  =  40;  // bitmap width in pixels
+    localparam HIGH1_HEIGHT =  32;  // bitmap height in pixels
+    localparam HIGH1_SCALE  =  1;  // 2^2 = 4x scale
+    sprite2 #(
+        .SPR_WIDTH(HIGH1_WIDTH),
+        .SPR_HEIGHT(HIGH1_HEIGHT),
+		.SPR_SCALE(HIGH1_SCALE)
+    ) high1 (
+        .clk(clk25),
+        .rst(Reset),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(sprx),
+        .spry(spry),
+		.spr_rom_addr(high1_addr1),
+        .en(high1_en)
+    );
+
+
+    /* =========================================================================== */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     // sprite parameters
     localparam CAT_WIDTH  =  30;  // bitmap width in pixels
     localparam CAT_HEIGHT =  32;  // bitmap height in pixels
