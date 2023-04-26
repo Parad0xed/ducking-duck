@@ -47,7 +47,7 @@ module sprite #(
     reg [SPR_SCALE:0] cnt_x;
 
     // for registering sprite position
-    reg signed [CORDW-1:0] sprx_r, spry_r;
+    reg unsigned [CORDW-1:0] sprx_r, spry_r;
 
     // status flags: used to change state
     wire signed [CORDW-1:0]  spr_diff;  // diff vertical screen and sprite positions

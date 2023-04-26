@@ -10,7 +10,7 @@ module level #(
     input [9:0] hc,
     input [9:0] vc,
 
-    output reg [CIDXW:0] level_pix, //4 bit pixel output for level
+    output [CIDXW:0] output_level_pix, //4 bit pixel output for level
     output [CIDXW:0] obstacle_pix //4 bit pixel output for obstacle
     );
 
@@ -42,11 +42,12 @@ module level #(
     //Initialize obstacle modules
     reg [1:0] loc1, loc2, loc3;
     reg busy1, busy2, busy3;
-    reg [CIDXW:0] obspix1, obspix2, obspix3;
+    reg [CIDXW:0] obspix1, obspix2, obspix3, level_pix;
     //obstacle #() ob1(.CLK(CLK), .DIVCLK(DIVCLK), .RESET(RESET), .line(line), .state(state), .hc(hc), .vc(vc), .speed(speed), .location(loc1), .busy(busy1), .done(done1), .pix(obspix1));
     //obstacle #() ob2(.CLK(CLK), .DIVCLK(DIVCLK), .RESET(RESET), .line(line), .state(state), .hc(hc), .vc(vc), .speed(speed), .location(loc2), .busy(busy2), .done(done2), .pix(obspix2));
     //obstacle #() ob3(.CLK(CLK), .DIVCLK(DIVCLK), .RESET(RESET), .line(line), .state(state), .hc(hc), .vc(vc), .speed(speed), .location(loc3), .busy(busy3), .done(done3), .pix(obspix3));
     assign obstacle_pix = (hc >= 170 && hc <= 750) ? (low2_data | high1_data | low3_data) : 0; // to avoid side margins.
+    assign output_level_pix = level_pix | cloud1_pix | cloud2_pix | cloud3_pix;
     reg [9:0] x1, x2, x3;
     reg [9:0] y1, y2, y3;
 
@@ -59,6 +60,7 @@ module level #(
             BGMod <= 3'b000; //Setting this to not 0 causes color inversion
         end
         else if((gameRunning || gameStill) && (hc >= 170 && hc <= 750)) begin
+            cloud1_en <= 1; cloud2_en <= 1; cloud3_en <= 1;
             if(vc == 308) begin
                 if({hc[2], hc[1], hc[0]} == BGMod) level_pix <= 4'b0111;
                 else level_pix <= 4'b0000;
@@ -72,7 +74,7 @@ module level #(
             if(!gameStill) BGCounter <= BGCounter + 1;
             if(BGCounter == 4'hFFFFF) BGMod <= BGMod - 1;
         end
-        else level_pix <= 4'b0000;
+        else begin level_pix <= 4'b0000; cloud1_en <= 0; cloud2_en <= 0; cloud3_en <= 0; end
     end
 
     //Track when the next obstacle is generated
@@ -372,6 +374,63 @@ module level #(
         .clk(clk25),
         .addr(high1_addr),
         .data(high1_data)
+    );
+
+
+
+    // AMBIENT BACKGROUND (CLOUDS)
+    reg cloud1_en, cloud2_en, cloud3_en;
+	wire [CIDXW-1:0] cloud1_pix, cloud2_pix, cloud3_pix;
+
+    sprite #(
+        .SPR_FILE("cloud1.mem"),
+        .SPR_WIDTH(42),
+        .SPR_HEIGHT(16),
+		.SPR_SCALE(1)
+    ) cloud1 (
+        .clk(clk25),
+        .rst(Reset),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(230),
+        .spry(195),
+        .pix(cloud1_pix),
+        .en(cloud1_en)
+    );
+
+    sprite #(
+        .SPR_FILE("cloud2.mem"),
+        .SPR_WIDTH(54),
+        .SPR_HEIGHT(22),
+		.SPR_SCALE(1)
+    ) cloud2 (
+        .clk(clk25),
+        .rst(Reset),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(365),
+        .spry(150),
+        .pix(cloud2_pix),
+        .en(cloud2_en)
+    );
+
+    sprite #(
+        .SPR_FILE("cloud3.mem"),
+        .SPR_WIDTH(55),
+        .SPR_HEIGHT(23),
+		.SPR_SCALE(1)
+    ) cloud3 (
+        .clk(clk25),
+        .rst(Reset),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(590),
+        .spry(205),
+        .pix(cloud3_pix),
+        .en(cloud3_en)
     );
 
 endmodule
