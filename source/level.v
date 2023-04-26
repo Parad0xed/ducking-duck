@@ -19,7 +19,8 @@ module level #(
     reg [15:0] obstacleCooldown; // For tracking when the next obstacle should be generated. Generates when register is full
     reg [2:0] BGMod;
     reg [19:0] BGCounter;
-    reg [7:0] speed; // Register to determine the speed at which the screen scrolls
+    reg [7:0] speed; // Register to determine the speed at which the screen scrolls (lower is faster)
+    reg [7:0] speedIncrement; // Register to determine when speed should be incremented
     
     //Parameters
     localparam 	
@@ -50,6 +51,8 @@ module level #(
     assign output_level_pix = level_pix | cloud1_pix | cloud2_pix | cloud3_pix;
     reg [9:0] x1, x2, x3;
     reg [9:0] y1, y2, y3;
+    localparam highY = 160, midY = 200, lowY = 247;
+    localparam obsMod = 6;
 
     //Background Generation
     //hc 143 to 784
@@ -78,44 +81,49 @@ module level #(
     end
 
     //Track when the next obstacle is generated
-    always @ (posedge DIVCLK[23], posedge RESET) begin
+    always @ (posedge DIVCLK[19], posedge RESET) begin
         if(RESET || (state==IDLE)) begin //Will need to add initialization for game reset instead of global reset
             obstacleCooldown <= 0;
             busy1 <= 0; busy2 <= 0; busy3 <= 0;
-            //loc1 <= 0; loc2 <= 0; loc3 <= 0;
         end
         else if(gameRunning) begin
-            if (obstacleCooldown >= 18) begin //Next obstacle ready to generate (6 divclk23s per second)
-                if(!busy1 || !busy2 || !busy3) obstacleCooldown <= 0;
+            if (obstacleCooldown >= speed) begin //Next obstacle ready to generate (6 divclk23s per second)
+                obstacleCooldown <= 0;
                 if(!busy1) begin
-                    busy1 <= 1;
-                    case((randVal % 4) + 1)
-                        1: begin y1 <= 160; high1_en1 <= 1; low2_en1 <= 0; low3_en1 <= 0; end
-                        2: begin y1 <= 200; high1_en1 <= 1; low2_en1 <= 0; low3_en1 <= 0; end
-                        3: begin y1 <= 245; high1_en1 <= 0; low2_en1 <= 1; low3_en1 <= 0; end
-                        4: begin y1 <= 245; high1_en1 <= 0; low2_en1 <= 0; low3_en1 <= 1; end
+                    if(((randVal % obsMod) + 1) <= 6) busy1 <= 1;
+                    case((randVal % obsMod) + 1)
+                        1: begin y1 <= highY; high1_en1 <= 1; low2_en1 <= 0; low3_en1 <= 0; end
+                        2: begin y1 <= midY; high1_en1 <= 1; low2_en1 <= 0; low3_en1 <= 0; end
+                        3: begin y1 <= lowY; high1_en1 <= 0; low2_en1 <= 1; low3_en1 <= 0; end
+                        4: begin y1 <= lowY; high1_en1 <= 0; low2_en1 <= 1; low3_en1 <= 0; end
+                        5: begin y1 <= lowY; high1_en1 <= 0; low2_en1 <= 0; low3_en1 <= 1; end
+                        6: begin y1 <= lowY; high1_en1 <= 0; low2_en1 <= 0; low3_en1 <= 1; end
+                        default: obstacleCooldown <= obstacleCooldown;
                     endcase
-                    //loc1 <= (randVal % 3) + 1;
                 end
                 else if(!busy2) begin
-                    busy2 <= 1;
-                    case((randVal % 4) + 1)
-                        1: begin y2 <= 160; high1_en2 <= 1; low2_en2 <= 0; low3_en2 <= 0; end
-                        2: begin y2 <= 200; high1_en2 <= 1; low2_en2 <= 0; low3_en2 <= 0; end
-                        3: begin y2 <= 245; high1_en2 <= 0; low2_en2 <= 1; low3_en2 <= 0; end
-                        4: begin y2 <= 245; high1_en2 <= 0; low2_en2 <= 0; low3_en2 <= 1; end
+                    if(((randVal % obsMod) + 1) <= 6) busy2 <= 1;
+                    case((randVal % obsMod) + 1)
+                        1: begin y2 <= highY; high1_en2 <= 1; low2_en2 <= 0; low3_en2 <= 0; end
+                        2: begin y2 <= midY; high1_en2 <= 1; low2_en2 <= 0; low3_en2 <= 0; end
+                        3: begin y2 <= lowY; high1_en2 <= 0; low2_en2 <= 1; low3_en2 <= 0; end
+                        4: begin y2 <= lowY; high1_en2 <= 0; low2_en2 <= 1; low3_en2 <= 0; end
+                        5: begin y2 <= lowY; high1_en2 <= 0; low2_en2 <= 0; low3_en2 <= 1; end
+                        6: begin y2 <= lowY; high1_en2 <= 0; low2_en2 <= 0; low3_en2 <= 1; end
+                        default: obstacleCooldown <= obstacleCooldown;
                     endcase
-                    //loc2 <= (randVal % 3) + 1;
                 end
                 else if(!busy3) begin
-                    busy3 <= 1;
-                    case((randVal % 4) + 1)
-                        1: begin y3 <= 160; high1_en3 <= 1; low2_en3 <= 0; low3_en3 <= 0; end
-                        2: begin y3 <= 200; high1_en3 <= 1; low2_en3 <= 0; low3_en3 <= 0; end
-                        3: begin y3 <= 245; high1_en3 <= 0; low2_en3 <= 1; low3_en3 <= 0; end
-                        4: begin y3 <= 245; high1_en3 <= 0; low2_en3 <= 0; low3_en3 <= 1; end
+                    if(((randVal % obsMod) + 1) <= 6) busy3 <= 1;
+                    case((randVal % obsMod) + 1)
+                        1: begin y3 <= highY; high1_en3 <= 1; low2_en3 <= 0; low3_en3 <= 0; end
+                        2: begin y3 <= midY; high1_en3 <= 1; low2_en3 <= 0; low3_en3 <= 0; end
+                        3: begin y3 <= lowY; high1_en3 <= 0; low2_en3 <= 1; low3_en3 <= 0; end
+                        4: begin y3 <= lowY; high1_en3 <= 0; low2_en3 <= 1; low3_en3 <= 0; end
+                        5: begin y3 <= lowY; high1_en3 <= 0; low2_en3 <= 0; low3_en3 <= 1; end
+                        6: begin y3 <= lowY; high1_en3 <= 0; low2_en3 <= 0; low3_en3 <= 1; end
+                        default: obstacleCooldown <= obstacleCooldown;
                     endcase
-                    //loc3 <= (randVal % 3) + 1;
                 end
             end
             else obstacleCooldown <= obstacleCooldown + 1;
@@ -147,26 +155,44 @@ module level #(
             else obspix3 <= 4'b0000;
         end
         else obspix3 <= 4'b0000;
-
     end
 
     //Move obstacles
-    always @ (posedge DIVCLK[18]) begin
+    reg [7:0] moveCount;
+    always @ (posedge DIVCLK[10]) begin
         if(gameRunning) begin
-            if(busy1) x1 <= x1 - 1; //Running
-            else x1 <= 780; //Not Running
-            
-            if(busy2) x2 <= x2 - 1;
-            else x2 <= 780;
+            if(moveCount >= speed) begin
+                if(busy1) x1 <= x1 - 1; //Running
+                else x1 <= 780; //Not Running
+                
+                if(busy2) x2 <= x2 - 1;
+                else x2 <= 780;
 
-            if(busy3) x3 <= x3 - 1;
-            else x3 <= 780;
+                if(busy3) x3 <= x3 - 1;
+                else x3 <= 780;
+
+                moveCount <= 0;
+            end
+            else moveCount <= moveCount + 1;
         end
         else if(state == IDLE || state == CHARSEL0 || state == CHARSEL1) begin
             x1 <= 780;
             x2 <= 780;
             x3 <= 780;
         end
+    end
+
+    //Update speed
+    always @ (posedge DIVCLK[22], posedge RESET) begin
+        if(RESET || gameStill) begin
+            speed <= 200;
+            speedIncrement <= 0;
+        end
+        else if(speedIncrement >= 180) begin
+            speed <= speed - 20;
+            speedIncrement <= 0;
+        end
+        else speedIncrement <= speedIncrement + 1; 
     end
 
 
