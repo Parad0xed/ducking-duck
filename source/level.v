@@ -90,8 +90,8 @@ module level #(
             if (obstacleCooldown >= speed) begin //Next obstacle ready to generate (6 divclk23s per second)
                 obstacleCooldown <= 0;
                 if(!busy1) begin
-                    if(((randVal % obsMod) + 1) <= 6) busy1 <= 1;
-                    case((randVal % obsMod) + 1)
+                    if(((random_reg % obsMod) + 1) <= 6) busy1 = 1;
+                    case((random_reg % obsMod) + 1)
                         1: begin y1 <= highY; high1_en1 <= 1; low2_en1 <= 0; low3_en1 <= 0; end
                         2: begin y1 <= midY; high1_en1 <= 1; low2_en1 <= 0; low3_en1 <= 0; end
                         3: begin y1 <= lowY; high1_en1 <= 0; low2_en1 <= 1; low3_en1 <= 0; end
@@ -102,8 +102,8 @@ module level #(
                     endcase
                 end
                 else if(!busy2) begin
-                    if(((randVal % obsMod) + 1) <= 6) busy2 <= 1;
-                    case((randVal % obsMod) + 1)
+                    if(((random_reg % obsMod) + 1) <= 6) busy2 = 1;
+                    case((random_reg % obsMod) + 1)
                         1: begin y2 <= highY; high1_en2 <= 1; low2_en2 <= 0; low3_en2 <= 0; end
                         2: begin y2 <= midY; high1_en2 <= 1; low2_en2 <= 0; low3_en2 <= 0; end
                         3: begin y2 <= lowY; high1_en2 <= 0; low2_en2 <= 1; low3_en2 <= 0; end
@@ -114,8 +114,8 @@ module level #(
                     endcase
                 end
                 else if(!busy3) begin
-                    if(((randVal % obsMod) + 1) <= 6) busy3 <= 1;
-                    case((randVal % obsMod) + 1)
+                    if(((random_reg % obsMod) + 1) <= 6) busy3 = 1;
+                    case((random_reg % obsMod) + 1)
                         1: begin y3 <= highY; high1_en3 <= 1; low2_en3 <= 0; low3_en3 <= 0; end
                         2: begin y3 <= midY; high1_en3 <= 1; low2_en3 <= 0; low3_en3 <= 0; end
                         3: begin y3 <= lowY; high1_en3 <= 0; low2_en3 <= 1; low3_en3 <= 0; end
@@ -134,6 +134,11 @@ module level #(
             if(x3 <= 80) begin busy3 <= 0; low2_en3 <= 0; high1_en3 <= 0; low3_en3 <= 0; end
         end
 
+    end
+
+    reg [12:0] random_reg;
+    always @ (posedge CLK) begin
+        random_reg <= randVal;
     end
 
     //Display obstacles
