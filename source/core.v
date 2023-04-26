@@ -1410,14 +1410,14 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
     
     
     // NAME :D
-    localparam NAME_WIDTH  =  92;  // bitmap width in pixels
-    localparam NAME_HEIGHT =  18;  // bitmap height in pixels
+    localparam NAME_WIDTH  =  78;  // bitmap width in pixels
+    localparam NAME_HEIGHT =  15;  // bitmap height in pixels
     localparam NAME_FILE   = "name.mem";  // bitmap file
-	localparam NAME_SCALE  =  0;  // 2^2 = 4x scale
+	localparam NAME_SCALE  =  1;  // 2^2 = 4x scale
     // localparam SPR_DRAWW  = SPR_WIDTH * 2**SPR_SCALE;
 
 	wire signed [CORDW-1:0] name_x, name_y;
-    assign name_x = 300, name_y = 250; 
+    assign name_x = 325, name_y = 250; 
     reg name_en;
 	wire [CIDXW-1:0] name_pix;
 	wire name_drawing;
