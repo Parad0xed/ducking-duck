@@ -1,4 +1,4 @@
-module obstacle #(
+module obstacle #( //UNUSED
     parameter CIDXW=3,
     parameter CORDW=10
     ) (
