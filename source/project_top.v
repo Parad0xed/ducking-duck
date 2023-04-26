@@ -48,6 +48,7 @@ module project_top(
 		DIV_CLK <= DIV_CLK + 1'b1;
     end
 
+	reg FAIL_signal;
 	wire BtnR_Pulse, BtnL_Pulse, BtnU_Pulse, BtnD_Pulse, BtnD_Signal;
 	wire line;
 	wire drawing;  // drawing at (sx,sy)
@@ -60,7 +61,7 @@ module project_top(
 	wire clk25;
 	display_controller dc(.clk(ClkPort), .hSync(hSync), .vSync(vSync), .bright(bright), .hCount(hc), .vCount(vc), .line(line), .clk25(clk25));
 	vga_bitchange #(.CIDXW(CIDXW)) vbc (.clk(ClkPort), .bright(bright), .button(BtnU), .drawing(drawing) ,.pix(pix), .hCount(hc), .vCount(vc), .rgb(rgb), .score(score));
-	core #(.CIDXW(CIDXW)) a (.Clk(ClkPort), .BtnR_Pulse(BtnR_Pulse), .BtnL_Pulse(BtnL_Pulse), .BtnU_Pulse(BtnU_Pulse), .BtnD_Pulse(BtnD_Pulse), .BtnD(BtnD_Signal), .Reset(Reset), .clk25(clk25), .line(line), .hc(hc), .vc(vc), .pix(char_pix), .score_pix(score_pix), .drawing(drawing), .state(state));
+	core #(.CIDXW(CIDXW)) a (.Clk(ClkPort), .FAIL_signal(FAIL_signal), .BtnR_Pulse(BtnR_Pulse), .BtnL_Pulse(BtnL_Pulse), .BtnU_Pulse(BtnU_Pulse), .BtnD_Pulse(BtnD_Pulse), .BtnD(BtnD_Signal), .Reset(Reset), .clk25(clk25), .line(line), .hc(hc), .vc(vc), .pix(char_pix), .score_pix(score_pix), .drawing(drawing), .state(state));
 	// state output ommitted ^ (not anymore)
 	level #() levelGen(.CLK(ClkPort), .RESET(Reset), .line(line), .state(state), .hc(hc), .vc(vc), .level_pix(level_pix), .obstacle_pix(obstacle_pix));
 
@@ -85,7 +86,17 @@ module project_top(
 
 	
 	assign pix = (char_pix ? char_pix:level_pix) | score_pix | obstacle_pix; // for now. add background check when that part is done
-	
+	always @ (posedge Reset, posedge ClkPort) begin
+		if (Reset) begin
+			FAIL_signal <= 0;
+		end
+		else begin
+			if (obstacle_pix != 0 && char_pix != 0) begin
+				FAIL_signal <= 1;
+			end
+			else FAIL_signal <= 0;
+		end
+	end
 	
 	// TESTING
 	localparam CAT_WIDTH  =  30;  // bitmap width in pixels

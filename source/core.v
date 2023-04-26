@@ -1,5 +1,5 @@
 
-module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, BtnL_Pulse, BtnU_Pulse, BtnD_Pulse, BtnD, 
+module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, FAIL_signal, BtnR_Pulse, BtnL_Pulse, BtnU_Pulse, BtnD_Pulse, BtnD, 
         clk25, line, hc, vc, state, pix, score_pix, drawing);
 
 
@@ -7,14 +7,13 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, BtnR_Pulse, Bt
 	input	Clk, BtnR_Pulse, BtnL_Pulse, BtnU_Pulse, BtnD_Pulse, BtnD, Reset; //, Start, Ack;
     input clk25, line;
     input [CORDW-1:0] hc, vc;
+    input FAIL_signal;
     
     output reg [CIDXW:0] pix;
     output reg [CIDXW:0] score_pix;
     output reg drawing;
 	// store current state
 	output reg [3:0] state;	
-
-    reg FAIL_signal; // change to input wire later
 
     reg [29:0] i_count;	// 2^30 = 1 073 741 824
     reg [21:0] x_count; // to deal with modulus operation. 2^22 = 4194304
