@@ -1,5 +1,5 @@
 module sprite2 #(
-    parameter CORDW=10,      // signed coordinate width (bits)
+    parameter CORDW=12,      // signed coordinate width (bits)
     parameter H_RES=784,     // horizontal screen resolution (pixels)
     parameter SX_OFFS=2,     // horizontal screen offset (pixels)
     parameter SPR_FILE="",   // sprite bitmap file ($readmemh format)
