@@ -51,7 +51,7 @@ module project_top(
 	wire BtnR_Pulse, BtnL_Pulse, BtnU_Pulse, BtnD_Pulse, BtnD_Signal;
 	wire line;
 	wire drawing;  // drawing at (sx,sy)
-	wire [CIDXW:0] pix, char_pix, score_pix, level_pix;
+	wire [CIDXW:0] pix, char_pix, score_pix, level_pix, obstacle_pix;
 	wire bright;
 	wire[9:0] hc, vc;
 	wire [6:0] ssdOut;
@@ -62,7 +62,7 @@ module project_top(
 	vga_bitchange #(.CIDXW(CIDXW)) vbc (.clk(ClkPort), .bright(bright), .button(BtnU), .drawing(drawing) ,.pix(pix), .hCount(hc), .vCount(vc), .rgb(rgb), .score(score));
 	core #(.CIDXW(CIDXW)) a (.Clk(ClkPort), .BtnR_Pulse(BtnR_Pulse), .BtnL_Pulse(BtnL_Pulse), .BtnU_Pulse(BtnU_Pulse), .BtnD_Pulse(BtnD_Pulse), .BtnD(BtnD_Signal), .Reset(Reset), .clk25(clk25), .line(line), .hc(hc), .vc(vc), .pix(char_pix), .score_pix(score_pix), .drawing(drawing), .state(state));
 	// state output ommitted ^ (not anymore)
-	level #() levelGen(.Clk(ClkPort), .DIV_CLK(DIV_CLK), .Reset(Reset), .line(line), .state(state), .hc(hc), .vc(vc), .level_pix(level_pix));
+	level #() levelGen(.CLK(ClkPort), .RESET(Reset), .line(line), .state(state), .hc(hc), .vc(vc), .level_pix(level_pix), .obstacle_pix(obstacle_pix));
 
 	localparam CIDXW=3; // maybe not constant if need space	
 
@@ -84,8 +84,7 @@ module project_top(
 		.SCEN(BtnD_Pulse), .MCEN( ), .CCEN(BtnD_Signal ));
 
 	
-	assign pix = (char_pix ? char_pix:level_pix) | score_pix; // for now. add background check when that part is done
-	// assign pix = spr_rom_data;
+	assign pix = (char_pix ? char_pix:level_pix) | score_pix | obstacle_pix; // for now. add background check when that part is done
 	
 	
 	// TESTING
