@@ -1,5 +1,5 @@
 module sprite2 #(
-    parameter CORDW=12,      // signed coordinate width (bits)
+    parameter CORDW=10,      // signed coordinate width (bits)
     parameter H_RES=784,     // horizontal screen resolution (pixels)
     parameter SX_OFFS=2,     // horizontal screen offset (pixels)
     parameter SPR_FILE="",   // sprite bitmap file ($readmemh format)
@@ -12,8 +12,8 @@ module sprite2 #(
     input  wire clk,                            // clock
     input  wire rst,                            // reset
     input  wire line,                           // start of active screen line
-    input  wire signed [CORDW-1:0] sx, sy,      // screen position
-    input  wire signed [CORDW-1:0] sprx, spry,  // sprite position
+    input  wire unsigned [CORDW-1:0] sx, sy,      // screen position
+    input  wire unsigned [CORDW-1:0] sprx, spry,  // sprite position
     input wire [SPR_DATAW-1:0] spr_rom_data,
     output reg [3:0] state,     // for debugging
     output reg [$clog2(SPR_WIDTH)-1:0] bmap_x,
@@ -37,7 +37,7 @@ module sprite2 #(
     reg unsigned [CORDW-1:0] sprx_r, spry_r;
 
     // status flags: used to change state
-    wire signed [CORDW:0]  spr_diff;  // diff vertical screen and sprite positions
+    wire signed [CORDW-1:0]  spr_diff;  // diff vertical screen and sprite positions. there should be no overflow bc y << 2^10
     wire spr_active;  // sprite active on this line
     wire spr_begin;   // begin sprite drawing
     wire spr_end;     // end of sprite on this line

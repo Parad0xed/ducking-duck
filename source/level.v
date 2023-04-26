@@ -46,7 +46,7 @@ module level #(
     //obstacle #() ob1(.CLK(CLK), .DIVCLK(DIVCLK), .RESET(RESET), .line(line), .state(state), .hc(hc), .vc(vc), .speed(speed), .location(loc1), .busy(busy1), .done(done1), .pix(obspix1));
     //obstacle #() ob2(.CLK(CLK), .DIVCLK(DIVCLK), .RESET(RESET), .line(line), .state(state), .hc(hc), .vc(vc), .speed(speed), .location(loc2), .busy(busy2), .done(done2), .pix(obspix2));
     //obstacle #() ob3(.CLK(CLK), .DIVCLK(DIVCLK), .RESET(RESET), .line(line), .state(state), .hc(hc), .vc(vc), .speed(speed), .location(loc3), .busy(busy3), .done(done3), .pix(obspix3));
-    assign obstacle_pix = low2_data;
+    assign obstacle_pix = (hc >= 170 && hc <= 750) ? (low2_data | high1_data | low3_data) : 0; // to avoid side margins.
     reg [9:0] x1, x2, x3;
     reg [9:0] y1, y2, y3;
 
@@ -87,28 +87,31 @@ module level #(
                 if(!busy1 || !busy2 || !busy3) obstacleCooldown <= 0;
                 if(!busy1) begin
                     busy1 <= 1;
-                    case((randVal % 3) + 1)
-                        1: y1 <= 160;
-                        2: y1 <= 200;
-                        3: y1 <= 240;
+                    case((randVal % 4) + 1)
+                        1: begin y1 <= 160; high1_en1 <= 1; low2_en1 <= 0; low3_en1 <= 0; end
+                        2: begin y1 <= 200; high1_en1 <= 1; low2_en1 <= 0; low3_en1 <= 0; end
+                        3: begin y1 <= 245; high1_en1 <= 0; low2_en1 <= 1; low3_en1 <= 0; end
+                        4: begin y1 <= 245; high1_en1 <= 0; low2_en1 <= 0; low3_en1 <= 1; end
                     endcase
                     //loc1 <= (randVal % 3) + 1;
                 end
                 else if(!busy2) begin
                     busy2 <= 1;
-                    case((randVal % 3) + 1)
-                        1: y2 <= 160;
-                        2: y2 <= 200;
-                        3: y2 <= 240;
+                    case((randVal % 4) + 1)
+                        1: begin y2 <= 160; high1_en2 <= 1; low2_en2 <= 0; low3_en2 <= 0; end
+                        2: begin y2 <= 200; high1_en2 <= 1; low2_en2 <= 0; low3_en2 <= 0; end
+                        3: begin y2 <= 245; high1_en2 <= 0; low2_en2 <= 1; low3_en2 <= 0; end
+                        4: begin y2 <= 245; high1_en2 <= 0; low2_en2 <= 0; low3_en2 <= 1; end
                     endcase
                     //loc2 <= (randVal % 3) + 1;
                 end
                 else if(!busy3) begin
                     busy3 <= 1;
-                    case((randVal % 3) + 1)
-                        1: y3 <= 160;
-                        2: y3 <= 200;
-                        3: y3 <= 240;
+                    case((randVal % 4) + 1)
+                        1: begin y3 <= 160; high1_en3 <= 1; low2_en3 <= 0; low3_en3 <= 0; end
+                        2: begin y3 <= 200; high1_en3 <= 1; low2_en3 <= 0; low3_en3 <= 0; end
+                        3: begin y3 <= 245; high1_en3 <= 0; low2_en3 <= 1; low3_en3 <= 0; end
+                        4: begin y3 <= 245; high1_en3 <= 0; low2_en3 <= 0; low3_en3 <= 1; end
                     endcase
                     //loc3 <= (randVal % 3) + 1;
                 end
@@ -116,9 +119,9 @@ module level #(
             else obstacleCooldown <= obstacleCooldown + 1;
 
              //Check end conditions
-            if(x1 <= 80) busy1 <= 0;
-            if(x2 <= 80) busy2 <= 0;
-            if(x3 <= 80) busy3 <= 0;
+            if(x1 <= 80) begin busy1 <= 0; low2_en1 <= 0; high1_en1 <= 0; low3_en1 <= 0; end
+            if(x2 <= 80) begin busy2 <= 0; low2_en2 <= 0; high1_en2 <= 0; low3_en2 <= 0; end
+            if(x3 <= 80) begin busy3 <= 0; low2_en3 <= 0; high1_en3 <= 0; low3_en3 <= 0; end
         end
 
     end
@@ -149,23 +152,24 @@ module level #(
     always @ (posedge DIVCLK[18]) begin
         if(gameRunning) begin
             if(busy1) x1 <= x1 - 1; //Running
-            else x1 <= 750; //Not Running
+            else x1 <= 780; //Not Running
             
             if(busy2) x2 <= x2 - 1;
-            else x2 <= 750;
+            else x2 <= 780;
 
             if(busy3) x3 <= x3 - 1;
-            else x3 <= 750;
+            else x3 <= 780;
         end
-        else if(state == IDLE) begin
-            x1 <= 750;
-            x2 <= 750;
-            x3 <= 750;
+        else if(state == IDLE || state == CHARSEL0 || state == CHARSEL1) begin
+            x1 <= 780;
+            x2 <= 780;
+            x3 <= 780;
         end
     end
 
 
 //SPRITES
+    reg low2_en1, low2_en2, low2_en3, low3_en1, low3_en2, low3_en3, high1_en1, high1_en2, high1_en3;
     sprite2 #(
         .SPR_WIDTH(LOW2_WIDTH),
         .SPR_HEIGHT(LOW2_HEIGHT),
@@ -179,7 +183,7 @@ module level #(
         .sprx(x1),
         .spry(y1),
 		.spr_rom_addr(low2_addr1),
-        .en(busy1)
+        .en(low2_en1)
     );
 
     sprite2 #(
@@ -195,7 +199,7 @@ module level #(
         .sprx(x2),
         .spry(y2),
 		.spr_rom_addr(low2_addr2),
-        .en(busy2)
+        .en(low2_en2)
     );
 
     sprite2 #(
@@ -211,7 +215,103 @@ module level #(
         .sprx(x3),
         .spry(y3),
 		.spr_rom_addr(low2_addr3),
-        .en(busy3)
+        .en(low2_en3)
+    );
+
+    sprite2 #(
+        .SPR_WIDTH(LOW3_WIDTH),
+        .SPR_HEIGHT(LOW3_HEIGHT),
+		.SPR_SCALE(LOW3_SCALE)
+    ) low3p1 (
+        .clk(clk25),
+        .rst(RESET),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(x1),
+        .spry(y1),
+		.spr_rom_addr(low3_addr1),
+        .en(low3_en1)
+    );
+
+    sprite2 #(
+        .SPR_WIDTH(LOW3_WIDTH),
+        .SPR_HEIGHT(LOW3_HEIGHT),
+		.SPR_SCALE(LOW3_SCALE)
+    ) low3p2 (
+        .clk(clk25),
+        .rst(RESET),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(x2),
+        .spry(y2),
+		.spr_rom_addr(low3_addr2),
+        .en(low3_en2)
+    );
+
+    sprite2 #(
+        .SPR_WIDTH(LOW3_WIDTH),
+        .SPR_HEIGHT(LOW3_HEIGHT),
+		.SPR_SCALE(LOW3_SCALE)
+    ) low3p3 (
+        .clk(clk25),
+        .rst(RESET),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(x3),
+        .spry(y3),
+		.spr_rom_addr(low3_addr3),
+        .en(low3_en3)
+    );
+
+    sprite2 #(
+        .SPR_WIDTH(HIGH1_WIDTH),
+        .SPR_HEIGHT(HIGH1_HEIGHT),
+		.SPR_SCALE(HIGH1_SCALE)
+    ) high1p1 (
+        .clk(clk25),
+        .rst(RESET),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(x1),
+        .spry(y1),
+		.spr_rom_addr(high1_addr1),
+        .en(high1_en1)
+    );
+
+    sprite2 #(
+        .SPR_WIDTH(HIGH1_WIDTH),
+        .SPR_HEIGHT(HIGH1_HEIGHT),
+		.SPR_SCALE(HIGH1_SCALE)
+    ) high1p2 (
+        .clk(clk25),
+        .rst(RESET),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(x2),
+        .spry(y2),
+		.spr_rom_addr(high1_addr2),
+        .en(high1_en2)
+    );
+
+    sprite2 #(
+        .SPR_WIDTH(HIGH1_WIDTH),
+        .SPR_HEIGHT(HIGH1_HEIGHT),
+		.SPR_SCALE(HIGH1_SCALE)
+    ) high1p3 (
+        .clk(clk25),
+        .rst(RESET),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(x3),
+        .spry(y3),
+		.spr_rom_addr(high1_addr3),
+        .en(high1_en3)
     );
 
     // CACTUS "LOWOBS2"
@@ -232,6 +332,26 @@ module level #(
         .clk(clk25),
         .addr(low2_addr),
         .data(low2_data)
+    );
+
+    // ROCK "LOWOBS3"
+    localparam LOW3_WIDTH  =  39;  // bitmap width in pixels
+    localparam LOW3_HEIGHT =  32;  // bitmap height in pixels
+    localparam LOW3_SCALE  =  1;  // 2^2 = 4x scale
+	localparam LOW3_FILE = "lowobs3.mem";
+    localparam LOW3ROMDEPTH = LOW3_WIDTH * LOW3_HEIGHT;
+    wire [$clog2(LOW3ROMDEPTH)-1:0] low3_addr1, low3_addr2, low3_addr3;
+    wire [$clog2(LOW3ROMDEPTH)-1:0] low3_addr;  // pixel position
+    wire [CIDXW-1:0] low3_data;  // pixel color
+	assign low3_addr = low3_addr1 | low3_addr2 | low3_addr3;
+    rom #(
+        .WIDTH(3), // SPR_DATAW),
+        .DEPTH(LOW3ROMDEPTH),
+        .INIT_F(LOW3_FILE)
+	) low3 (
+        .clk(clk25),
+        .addr(low3_addr),
+        .data(low3_data)
     );
 
     // HELICOPTER "HIGHOBS1"

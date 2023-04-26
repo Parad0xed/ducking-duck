@@ -85,7 +85,7 @@ module project_top(
 		.SCEN(BtnD_Pulse), .MCEN( ), .CCEN(BtnD_Signal ));
 
 	
-	assign pix = (char_pix ? char_pix:level_pix) | score_pix | obstacle_pix; // for now. add background check when that part is done
+	assign pix = (char_pix ? char_pix:(obstacle_pix ?  obstacle_pix : level_pix)) | score_pix; // char >> obst >> level, score separate
 	always @ (posedge Reset, posedge ClkPort) begin
 		if (Reset) begin
 			FAIL_signal <= 0;
