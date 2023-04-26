@@ -100,6 +100,7 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, FAIL_signal, B
     );
 
     reg [1:0] percent_shown;
+    reg fail_flag; // just to be sure it doesn't fail twice
 
 	// NSL AND SM
 	always @ (posedge Clk, posedge Reset)
@@ -110,12 +111,13 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, FAIL_signal, B
 			i_count <= 8'bx;  	// TITLE INCREMENTER
             score_count_en <= 0;
             score_en <= 0;
+            fail_flag <= 0;
                     		
 		  end
-        else if (score_one == 0 && score_ten == 1 && score_hun == 0 && FAIL_signal != 1) begin // SCORE == 10
-            FAIL_signal <= 1;
+        else if (FAIL_signal && (state != FAIL1) && (state != FAIL2) && (fail_flag == 0)) begin // SCORE == 10
             score_count_en <= 0;
             state <= FAIL1;
+            fail_flag <= 1;
             if ({score_th, score_hun, score_ten, score_one} > {hiscore_th, hiscore_hun, hiscore_ten, hiscore_one})begin 
                 hiscore_th <= score_th;
                 hiscore_hun <= score_hun;
@@ -240,6 +242,7 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, FAIL_signal, B
                         varchar_x1 <= CHARX;
                         seltext_en <= 0;
                         state <= IDLE;
+                        fail_flag <= 0;
                     end
                 end
                 CHARSEL1: begin 
@@ -255,6 +258,7 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, FAIL_signal, B
                         varchar_x1 <= CHARX;
                         seltext_en <= 0;
                         state <= IDLE;
+                        fail_flag <= 0;
                     end
                 end
                 // BELOW SECTION FOR CHAR STATES
@@ -406,8 +410,11 @@ module core #(parameter CIDXW=3, parameter CORDW=10) (Clk, Reset, FAIL_signal, B
         end
         else begin
 
-            // temporary condition for artificial fail signal
-            if((state == FAIL1 && BtnR_Pulse) || (state == FAIL2 && BtnR_Pulse)) begin
+            // // temporary condition for artificial fail signal
+            // if((state == FAIL1 && BtnR_Pulse) || (state == FAIL2 && BtnR_Pulse)) begin
+            //     score_one <= 0; score_ten <= 0; score_hun <= 0; score_th <= 0; s_count <= 0;
+            // end
+            if(FAIL_signal) begin
                 score_one <= 0; score_ten <= 0; score_hun <= 0; score_th <= 0; s_count <= 0;
             end
 
