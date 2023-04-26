@@ -19,9 +19,8 @@ module sprite_tb;
 	wire[9:0] hc, vc;
 	wire clk25;
     wire[3:0] state;
-    wire[$clog2(SPR_WIDTH)-1:0] bmap_x1, bmap_x2;
-    wire [$clog2(SPR_ROM_DEPTH)-1:0] ra;
-    wire [$clog2(SPR_ROM_DEPTH)-1:0] sp;
+    wire [$clog2(30)-1:0] bmap_x;
+    wire[CAT_SCALE:0] cnt_x;
 
     display_controller dc(.clk(Clk), .hSync(hSync), .vSync(vSync), .bright(bright), .hCount(hc), .vCount(vc), .line(line), .clk25(clk25));
 
@@ -31,51 +30,62 @@ module sprite_tb;
     localparam CIDXW = 3;
 
     // sprite parameters
-    localparam SX_OFFS    = 2;  // horizontal screen offset (pixels)
-    localparam SPR_FILE   = "letter_f.mem";
-    localparam SPR_WIDTH  = 8;  // width in pixels
-    localparam SPR_HEIGHT = 8;  // height in pixels
-    localparam SPR_SCALE  = 1;  // 2^1 = 2x scale
-    localparam SPR_DATAW  = 2;  // bits per pixel
+    localparam CAT_WIDTH  =  30;  // bitmap width in pixels
+    localparam CAT_HEIGHT =  32;  // bitmap height in pixels
+    localparam CAT_SCALE  =  0;  // 2^2 = 4x scale
+	localparam CAT_IDLE_FILE = "idle1.mem";
 
-    wire drawing;  // drawing at (sx,sy)
-    wire drawing1, drawing2;
-	wire [SPR_DATAW-1:0] spr_pix_indx;
-    
-
-    localparam SPR_ROM_DEPTH = SPR_WIDTH * SPR_HEIGHT;
-
-
-    localparam NAME_WIDTH  =  92;  // bitmap width in pixels
-    localparam NAME_HEIGHT =  18;  // bitmap height in pixels
-    localparam NAME_FILE   = "name.mem";  // bitmap file
-	localparam NAME_SCALE  =  0;  // 2^2 = 4x scale
-    // localparam SPR_DRAWW  = SPR_WIDTH * 2**SPR_SCALE;
-
-	wire signed [CORDW-1:0] name_x, name_y;
-    assign name_x = 5, name_y = 0; 
-    reg name_en;
-	wire [CIDXW-1:0] name_pix;
-	wire name_drawing;
-
-    sprite #(
-        .SPR_FILE(NAME_FILE),
-        .SPR_WIDTH(NAME_WIDTH),
-        .SPR_HEIGHT(NAME_HEIGHT),
-		.SPR_SCALE(NAME_SCALE)
-    ) name (
+	sprite2 #(
+        .SPR_FILE(CAT_IDLE_FILE),
+        .SPR_WIDTH(CAT_WIDTH),
+        .SPR_HEIGHT(CAT_HEIGHT),
+		.SPR_SCALE(CAT_SCALE)
+    ) catidle1 (
         .clk(clk25),
         .rst(Reset),
         .line(line),
         .sx(hc),
         .sy(vc),
-        .sprx(name_x),
-        .spry(name_y),
-        .pix(name_pix),
-        .drawing(name_drawing),
-        .en(name_en)
+        .sprx(200),
+        .spry(150),
+		.spr_rom_addr(cataddr1),
+        .cnt_x(cnt_x), .bmap_x(bmap_x), .state(state),
+        .en(1)
     );
 
+	sprite2 #(
+        .SPR_FILE(CAT_IDLE_FILE),
+        .SPR_WIDTH(CAT_WIDTH),
+        .SPR_HEIGHT(CAT_HEIGHT),
+		.SPR_SCALE(CAT_SCALE)
+    ) catidle2 (
+        .clk(clk25),
+        .rst(Reset),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(400),
+        .spry(150),
+		.spr_rom_addr(cataddr2),
+        .en(1)
+    );
+
+	wire [$clog2(CATROMDEPTH)-1:0] cataddr1, cataddr2;
+
+	localparam CATROMDEPTH = CAT_WIDTH * CAT_HEIGHT;
+    wire [$clog2(CATROMDEPTH)-1:0] spr_rom_addr;  // pixel position
+    wire [CIDXW-1:0] spr_rom_data;  // pixel color
+	assign spr_rom_addr = cataddr1 | cataddr2;
+    rom #(
+        .WIDTH(3), // SPR_DATAW),
+        .DEPTH(CATROMDEPTH),
+        .INIT_F(CAT_IDLE_FILE)
+	) test (
+        .clk(clk25),
+        .addr(spr_rom_addr),
+        .data(spr_rom_data)
+    );
+	
     /*
     draw sprite at position (sprx,spry)
     reg signed [CORDW-1:0] sprx, spry;
@@ -144,9 +154,6 @@ module sprite_tb;
 		
     always  begin #20; Clk = ~ Clk; end
 
-    always @(posedge Clk)
-        if(name_pix)
-                $display("NAME_PIX TRUEEEE");
 
     initial begin
         Reset = 1;
@@ -154,7 +161,6 @@ module sprite_tb;
         
         #120 Reset = 0;
 
-        name_en = 1;
         
 
         #43000

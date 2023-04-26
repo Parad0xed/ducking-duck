@@ -85,11 +85,98 @@ module project_top(
 
 	
 	assign pix = (char_pix ? char_pix:level_pix) | score_pix; // for now. add background check when that part is done
+	// assign pix = spr_rom_data;
 	
 	
-	
+	// TESTING
+	localparam CAT_WIDTH  =  30;  // bitmap width in pixels
+    localparam CAT_HEIGHT =  32;  // bitmap height in pixels
+    localparam CAT_SCALE  =  1;  // 2^2 = 4x scale
+	localparam CAT_IDLE_FILE = "idle1.mem";
 
-	
+	sprite2 #(
+        .SPR_FILE(CAT_IDLE_FILE),
+        .SPR_WIDTH(CAT_WIDTH),
+        .SPR_HEIGHT(CAT_HEIGHT),
+		.SPR_SCALE(CAT_SCALE)
+    ) catidle1 (
+        .clk(clk25),
+        .rst(Reset),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(200),
+        .spry(150),
+		.spr_rom_addr(cataddr1),
+        .en(1)
+    );
+
+	sprite2 #(
+        .SPR_FILE(CAT_IDLE_FILE),
+        .SPR_WIDTH(CAT_WIDTH),
+        .SPR_HEIGHT(CAT_HEIGHT),
+		.SPR_SCALE(CAT_SCALE)
+    ) catidle2 (
+        .clk(clk25),
+        .rst(Reset),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(300),
+        .spry(150),
+		.spr_rom_addr(cataddr2),
+        .en(1)
+    );
+
+	sprite2 #(
+        .SPR_FILE(CAT_IDLE_FILE),
+        .SPR_WIDTH(CAT_WIDTH),
+        .SPR_HEIGHT(CAT_HEIGHT),
+		.SPR_SCALE(0)
+    ) catidle3 (
+        .clk(clk25),
+        .rst(Reset),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(400),
+        .spry(150),
+		.spr_rom_addr(cataddr3),
+        .en(1)
+    );
+
+	sprite2 #(
+        .SPR_FILE(CAT_IDLE_FILE),
+        .SPR_WIDTH(CAT_WIDTH),
+        .SPR_HEIGHT(CAT_HEIGHT),
+		.SPR_SCALE(2)
+    ) catidle4 (
+        .clk(clk25),
+        .rst(Reset),
+        .line(line),
+        .sx(hc),
+        .sy(vc),
+        .sprx(450),
+        .spry(150),
+		.spr_rom_addr(cataddr4),
+        .en(1)
+    );
+
+	wire [$clog2(CATROMDEPTH)-1:0] cataddr1, cataddr2, cataddr3, cataddr4;
+
+	localparam CATROMDEPTH = CAT_WIDTH * CAT_HEIGHT;
+    wire [$clog2(CATROMDEPTH)-1:0] spr_rom_addr;  // pixel position
+    wire [CIDXW-1:0] spr_rom_data;  // pixel color
+	assign spr_rom_addr = cataddr1 | cataddr2 | cataddr3 | cataddr4;
+    rom #(
+        .WIDTH(3), // SPR_DATAW),
+        .DEPTH(CATROMDEPTH),
+        .INIT_F(CAT_IDLE_FILE)
+	) test (
+        .clk(clk25),
+        .addr(spr_rom_addr),
+        .data(spr_rom_data)
+    );
 
 endmodule
  /*
